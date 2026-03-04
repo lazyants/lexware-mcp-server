@@ -26,7 +26,7 @@ Set your Lexware Office API token:
 export LEXWARE_API_TOKEN=your-token-here
 ```
 
-Get a token from the [Lexware Office API settings](https://app.lexware.io/settings/public-api).
+Get a token from the [Lexware Office API settings](https://app.lexware.de/addons/public-api).
 
 ## Entry Points
 
