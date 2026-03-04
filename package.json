@@ -1,0 +1,51 @@
+{
+  "name": "lexware-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for the Lexware Office API — manage invoices, contacts, articles, vouchers, and more",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "lexware-mcp-server": "dist/index.js",
+    "lexware-mcp-sales": "dist/entry-sales.js",
+    "lexware-mcp-contacts": "dist/entry-contacts.js",
+    "lexware-mcp-bookkeeping": "dist/entry-bookkeeping.js",
+    "lexware-mcp-reference": "dist/entry-reference.js",
+    "lexware-mcp-system": "dist/entry-system.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "mcp",
+    "lexware",
+    "lexoffice",
+    "accounting",
+    "invoicing",
+    "api",
+    "model-context-protocol"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lazy-ants/lexware-mcp-server.git"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.0",
+    "axios": "^1.7.0",
+    "form-data": "^4.0.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "@types/node": "^20.0.0",
+    "vitest": "^3.0.0"
+  }
+}
