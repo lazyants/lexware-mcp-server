@@ -7,6 +7,11 @@
     "source": "github"
   },
   "version": "1.0.0",
+  "icon": {
+    "src": "https://raw.githubusercontent.com/lazyants/lexware-mcp-server/main/logo.png",
+    "mimeType": "image/png",
+    "sizes": ["400x400"]
+  },
   "packages": [
     {
       "registryType": "npm",
