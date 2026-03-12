@@ -29,3 +29,7 @@ Dual error formats in `services/lexware.ts`:
 - `smoke.test.ts` — counts tools per entry point (update counts when adding/removing tools)
 - **GOTCHA**: `vi.mock()` calls are hoisted — use `vi.hoisted()` for shared mocks
 - **GOTCHA**: Use `importOriginal` when you need to keep real implementations alongside mocks
+
+## MCP Registry
+
+- **GOTCHA**: `server.json` has two `version` fields — root `version` is the MCP Registry version (must be unique per publish), `packages[0].version` is the npm version (must exist on npm). They can differ.
