@@ -1,6 +1,6 @@
 # lexware-mcp-server
 
-[![Tests](https://github.com/lazy-ants/lexware-mcp-server/actions/workflows/test.yml/badge.svg)](https://github.com/lazy-ants/lexware-mcp-server/actions/workflows/test.yml)
+[![Tests](https://github.com/lazyants/lexware-mcp-server/actions/workflows/test.yml/badge.svg)](https://github.com/lazyants/lexware-mcp-server/actions/workflows/test.yml)
 
 MCP server for the [Lexware Office API](https://developers.lexware.io/docs/). Manage invoices, contacts, articles, vouchers, and more through the Model Context Protocol.
 
@@ -9,13 +9,13 @@ MCP server for the [Lexware Office API](https://developers.lexware.io/docs/). Ma
 ## Installation
 
 ```bash
-npm install -g lexware-mcp-server
+npm install -g @lazyants/lexware-mcp-server
 ```
 
 Or run directly:
 
 ```bash
-npx lexware-mcp-server
+npx @lazyants/lexware-mcp-server
 ```
 
 ## Configuration
@@ -50,7 +50,7 @@ Add to `~/.claude/settings.json`:
   "mcpServers": {
     "lexware": {
       "command": "npx",
-      "args": ["-y", "lexware-mcp-server"],
+      "args": ["-y", "@lazyants/lexware-mcp-server"],
       "env": {
         "LEXWARE_API_TOKEN": "your-token-here"
       }
@@ -66,12 +66,12 @@ Or use split servers (pick the splits you need):
   "mcpServers": {
     "lexware-sales": {
       "command": "npx",
-      "args": ["-y", "-p", "lexware-mcp-server", "lexware-mcp-sales"],
+      "args": ["-y", "-p", "@lazyants/lexware-mcp-server", "lexware-mcp-sales"],
       "env": { "LEXWARE_API_TOKEN": "your-token-here" }
     },
     "lexware-contacts": {
       "command": "npx",
-      "args": ["-y", "-p", "lexware-mcp-server", "lexware-mcp-contacts"],
+      "args": ["-y", "-p", "@lazyants/lexware-mcp-server", "lexware-mcp-contacts"],
       "env": { "LEXWARE_API_TOKEN": "your-token-here" }
     }
   }
@@ -87,7 +87,7 @@ Add to `claude_desktop_config.json`:
   "mcpServers": {
     "lexware": {
       "command": "npx",
-      "args": ["-y", "lexware-mcp-server"],
+      "args": ["-y", "@lazyants/lexware-mcp-server"],
       "env": {
         "LEXWARE_API_TOKEN": "your-token-here"
       }

@@ -1,0 +1,28 @@
+name: Publish to MCP Registry
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install mcp-publisher
+        run: |
+          curl -sL https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher-linux-amd64.tar.gz | tar xz
+          sudo mv mcp-publisher /usr/local/bin/
+
+      - name: Authenticate and publish
+        run: |
+          mcp-publisher login github-oidc
+          mcp-publisher publish

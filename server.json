@@ -1,0 +1,17 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.lazyants/lexware",
+  "description": "MCP server for the Lexware Office API — manage invoices, contacts, articles, vouchers, and more. 65 tools across 20 resource domains with 6 entry points.",
+  "repository": {
+    "url": "https://github.com/lazyants/lexware-mcp-server",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registry_name": "npm",
+      "name": "@lazyants/lexware-mcp-server",
+      "version": "1.0.0"
+    }
+  ]
+}
