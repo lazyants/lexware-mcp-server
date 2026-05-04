@@ -16,6 +16,8 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
+      - name: Lint
+        run: npm run lint
       - name: Verify version sync
         run: node scripts/check-versions.mjs
       - name: Audit production dependencies
