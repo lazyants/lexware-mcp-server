@@ -1,6 +1,6 @@
 {
   "name": "@lazyants/lexware-mcp-server",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "MCP server for the Lexware Office API — manage invoices, contacts, articles, vouchers, and more",
   "type": "module",
   "main": "dist/index.js",
@@ -44,7 +44,7 @@
     "url": "git+https://github.com/lazyants/lexware-mcp-server.git"
   },
   "mcpName": "io.github.lazyants/lexware",
-  "license": "MIT",
+  "license": "FSL-1.1-MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "axios": "^1.16.0",
