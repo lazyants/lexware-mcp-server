@@ -31,7 +31,7 @@ export function registerContactTools(server: McpServer): void {
     title: 'Create Contact',
     description: 'Create a new contact.',
     inputSchema: z.object({
-      body: z.record(z.unknown()).describe(
+      body: z.record(z.string(), z.unknown()).describe(
         'Contact JSON. Key fields: version (0 for new), roles (object with customer/vendor), company (object with name), person (object with firstName, lastName), addresses (object with billing/shipping arrays), emailAddresses, phoneNumbers'
       ),
     }),
@@ -43,7 +43,7 @@ export function registerContactTools(server: McpServer): void {
     description: 'Update an existing contact. The body must include the version field for optimistic locking.',
     inputSchema: z.object({
       id: UuidSchema.describe('Contact ID'),
-      body: z.record(z.unknown()).describe(
+      body: z.record(z.string(), z.unknown()).describe(
         'Contact JSON with version field. Same structure as create.'
       ),
     }),

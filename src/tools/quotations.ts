@@ -9,7 +9,7 @@ export function registerQuotationTools(server: McpServer): void {
     title: 'Create Quotation',
     description: 'Create a new quotation in Lexware.',
     inputSchema: z.object({
-      body: z.record(z.unknown()).describe(
+      body: z.record(z.string(), z.unknown()).describe(
         'Quotation JSON body. Key fields: voucherDate, expirationDate, address (object with contactId or manual fields), lineItems (array with name, quantity, unitPrice, etc.), totalPrice (object), taxConditions (object). See Lexware API docs for full schema.'
       ),
     }),

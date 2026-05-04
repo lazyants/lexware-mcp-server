@@ -28,7 +28,7 @@ export function registerArticleTools(server: McpServer): void {
     title: 'Create Article',
     description: 'Create a new article.',
     inputSchema: z.object({
-      body: z.record(z.unknown()).describe(
+      body: z.record(z.string(), z.unknown()).describe(
         'Article JSON. Key fields: title (string), type ("PRODUCT"|"SERVICE"), unitName, unitPrice (object with currency, netAmount, grossAmount, taxRatePercentage), description'
       ),
     }),
@@ -40,7 +40,7 @@ export function registerArticleTools(server: McpServer): void {
     description: 'Update an existing article. The body must include the version field for optimistic locking.',
     inputSchema: z.object({
       id: UuidSchema.describe('Article ID'),
-      body: z.record(z.unknown()).describe(
+      body: z.record(z.string(), z.unknown()).describe(
         'Article JSON with version field included for optimistic locking. Key fields: title, type, unitName, unitPrice, description, version (required)'
       ),
     }),

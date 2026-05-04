@@ -9,7 +9,7 @@ export function registerVoucherTools(server: McpServer): void {
     title: 'Create Voucher',
     description: 'Create a new bookkeeping voucher in Lexware.',
     inputSchema: z.object({
-      body: z.record(z.unknown()).describe(
+      body: z.record(z.string(), z.unknown()).describe(
         'Voucher JSON. Key fields: type ("salesinvoice"|"salescreditnote"|"purchaseinvoice"|"purchasecreditnote"), voucherNumber, voucherDate, totalGrossAmount, totalTaxAmount, taxType, voucherItems (array), contactId'
       ),
     }),
@@ -44,7 +44,7 @@ export function registerVoucherTools(server: McpServer): void {
     description: 'Update an existing bookkeeping voucher in Lexware. Requires version field for optimistic locking.',
     inputSchema: z.object({
       id: UuidSchema.describe('Voucher UUID'),
-      body: z.record(z.unknown()).describe('Voucher JSON with version field for optimistic locking'),
+      body: z.record(z.string(), z.unknown()).describe('Voucher JSON with version field for optimistic locking'),
     }),
     annotations: {
       readOnlyHint: false,

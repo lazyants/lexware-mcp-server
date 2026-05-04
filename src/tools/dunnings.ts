@@ -9,7 +9,7 @@ export function registerDunningTools(server: McpServer): void {
     title: 'Create Dunning',
     description: 'Create a new dunning in Lexware.',
     inputSchema: z.object({
-      body: z.record(z.unknown()).describe(
+      body: z.record(z.string(), z.unknown()).describe(
         'Dunning JSON body. Key fields: voucherDate, address (object with contactId or manual fields), lineItems (array), totalPrice (object), taxConditions (object). See Lexware API docs for full schema.'
       ),
     }),
