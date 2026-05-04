@@ -212,4 +212,4 @@ Create, update, and delete operations modify real business data in your Lexware 
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+[FSL-1.1-MIT](LICENSE) — see [LICENSE](LICENSE) for the full terms.
