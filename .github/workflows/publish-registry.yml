@@ -1,4 +1,4 @@
-name: Publish to MCP Registry
+name: Publish to npm + MCP Registry
 
 on:
   release:
@@ -6,6 +6,7 @@ on:
 
 permissions:
   id-token: write
+  contents: read
 
 jobs:
   publish:
@@ -16,16 +17,61 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 20
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Verify version sync
         run: node scripts/check-versions.mjs
 
+      - name: Install dependencies and build
+        run: |
+          npm ci
+          npm run build
+
+      # Install mcp-publisher BEFORE npm publish so a broken `latest`
+      # binary fails the workflow before the irreversible npm publish.
+      # The actual `mcp-publisher publish` call still runs after npm
+      # publish succeeds and propagation completes.
       - name: Install mcp-publisher
         run: |
           curl -sL https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz | tar xz
           sudo mv mcp-publisher /usr/local/bin/
+          mcp-publisher --help >/dev/null
 
-      - name: Authenticate and publish
+      # Cutover/recovery guard: skip npm publish if the version is already
+      # on npm (e.g. partial prior release where mcp-publisher failed after
+      # npm publish succeeded). Not a steady-state need — every fresh
+      # version bump will fall through to the publish step.
+      - name: Check if version already on npm
+        id: npm_check
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if npm view "@lazyants/lexware-mcp-server@${version}" version >/dev/null 2>&1; then
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Version ${version} already on npm — skipping npm publish step"
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish to npm
+        if: steps.npm_check.outputs.already_published == 'false'
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Wait for npm registry propagation
+        run: |
+          version=$(node -p "require('./package.json').version")
+          for i in {1..18}; do
+            if npm view "@lazyants/lexware-mcp-server@${version}" version >/dev/null 2>&1; then
+              echo "npm tarball available after ${i} retries"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::npm tarball not available after 90s — aborting"
+          exit 1
+
+      - name: Authenticate and publish to MCP Registry
         run: |
           mcp-publisher login github-oidc
           mcp-publisher publish

@@ -4,6 +4,8 @@
 
 MCP server for the [Lexware Office API](https://developers.lexware.io/docs/). Manage invoices, contacts, articles, vouchers, and more through the Model Context Protocol.
 
+> **Unofficial — community project.** Not affiliated with, endorsed by, or supported by Lexware GmbH or Haufe Group. "Lexware" and "Lexware Office" are trademarks of their respective owners; used here only to identify the API this client targets (nominative fair use).
+
 **66 tools** across 20 resource domains, with 6 entry points so you can pick the right server for your MCP client's tool limit.
 
 ## Installation
@@ -185,9 +187,28 @@ Add to `claude_desktop_config.json`:
 - **Create, update, and delete tools modify real business data** — invoices, contacts, and accounting records in your Lexware account
 - Rate limiting is handled automatically (exponential backoff on 429)
 
+## Releasing
+
+Releases ship via the GitHub Release event. Maintainer flow:
+
+1. Bump the version in `package.json` and `server.json` (`npm run check-versions` enforces alignment between `package.json#/version` and `server.json#/packages[0].version`).
+2. Update `CHANGELOG.md`.
+3. Commit, then `gh release create vX.Y.Z --notes-from-tag` (or write release notes inline).
+4. The `Publish to npm + MCP Registry` workflow runs automatically: it `npm publish`es with provenance, polls the registry until the tarball is available, then pushes the matching `server.json` to the MCP Registry via `mcp-publisher`.
+
+The workflow skips `npm publish` cleanly if the version is already on npm (cutover guard for releases that were partially published manually).
+
+### Required repository secret
+
+`NPM_TOKEN` must be a **granular access token** issued from the npm org dashboard (https://www.npmjs.com/settings/lazyants/tokens) with read-and-write permission on `@lazyants/lexware-mcp-server`. Classic legacy automation tokens silently fail with `--provenance` since npm's 2024 enforcement.
+
 ## Disclaimer
 
-Not affiliated with Lexware or Haufe Group. Create, update, and delete operations modify real business data in your Lexware account. The authors are not responsible for any unintended changes.
+This is an **unofficial, independent community project**. It is not affiliated with, endorsed by, sponsored by, or supported by Lexware GmbH, Haufe Group, or any of their affiliates. For official Lexware support, contact Lexware directly — issues with this MCP server should be reported here, not to Lexware.
+
+"Lexware" and "Lexware Office" are trademarks of their respective owners and are used in this project's name and documentation under nominative fair use, solely to identify the third-party API this client connects to.
+
+Create, update, and delete operations modify real business data in your Lexware account. The authors provide this software "as-is" and accept no responsibility for unintended changes, data loss, or any other damages arising from its use. Test against a sandbox or non-critical account before running write operations against production data.
 
 ## License
 
