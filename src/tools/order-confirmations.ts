@@ -9,7 +9,7 @@ export function registerOrderConfirmationTools(server: McpServer): void {
     title: 'Create Order Confirmation',
     description: 'Create a new order confirmation in Lexware.',
     inputSchema: z.object({
-      body: z.record(z.unknown()).describe(
+      body: z.record(z.string(), z.unknown()).describe(
         'Order confirmation JSON body. Key fields: voucherDate, address (object with contactId or manual fields), lineItems (array with name, quantity, unitPrice, etc.), totalPrice (object), taxConditions (object). See Lexware API docs for full schema.'
       ),
     }),

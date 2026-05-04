@@ -9,7 +9,7 @@ export function registerCreditNoteTools(server: McpServer): void {
     title: 'Create Credit Note',
     description: 'Create a new credit note in Lexware.',
     inputSchema: z.object({
-      body: z.record(z.unknown()).describe(
+      body: z.record(z.string(), z.unknown()).describe(
         'Credit note JSON body. Key fields: voucherDate, address (object with contactId or manual fields), lineItems (array with name, quantity, unitPrice, etc.), totalPrice (object), taxConditions (object). See Lexware API docs for full schema.'
       ),
     }),

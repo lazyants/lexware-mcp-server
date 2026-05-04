@@ -9,7 +9,7 @@ export function registerDeliveryNoteTools(server: McpServer): void {
     title: 'Create Delivery Note',
     description: 'Create a new delivery note in Lexware.',
     inputSchema: z.object({
-      body: z.record(z.unknown()).describe(
+      body: z.record(z.string(), z.unknown()).describe(
         'Delivery note JSON body. Key fields: voucherDate, address (object with contactId or manual fields), lineItems (array with name, quantity, unitPrice, etc.), totalPrice (object), taxConditions (object). See Lexware API docs for full schema.'
       ),
     }),

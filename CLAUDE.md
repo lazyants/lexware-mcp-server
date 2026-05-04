@@ -9,7 +9,7 @@
 ## Conventions
 
 - **Tool naming**: `lexware_<action>_<resource>` (e.g. `lexware_create_invoice`)
-- **Complex bodies**: Use `z.record(z.unknown())` for create/update — API does server-side validation
+- **Complex bodies**: Use `z.record(z.string(), z.unknown())` for create/update — zod 4 requires both key and value schemas. API does server-side validation.
 - **Optimistic locking**: PUT requests require `version` field in body
 - **IDs**: UUIDs for all resources (use `UuidSchema` from `schemas/common.ts`)
 - **Pagination**: 0-indexed `page` + `size` params (use `PaginationParams` spread)
