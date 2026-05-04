@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm package: [`@lazyants/lexware-mcp-server`](https://www.npmjs.com/package/@lazyants/lexware-mcp-server)
 - MCP Registry: [`io.github.lazyants/lexware`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.lazyants/lexware)
 
+## [2.0.0] — 2026-05-04
+
+### Changed
+
+- License updated to [FSL-1.1-MIT](LICENSE). Versions `1.1.0` and earlier
+  remain under their original MIT license.
+
 ## [1.1.0] — 2026-05-04
 
 ### Added
@@ -90,6 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[2.0.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v2.0.0
 [1.1.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v1.1.0
 [1.0.2]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v1.0.2
 [1.0.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v1.0.1
