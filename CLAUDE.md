@@ -4,7 +4,7 @@
 
 - ESM project — use `.js` extensions in all imports (Node16 module resolution)
 - `npm run build` (tsc) then `npm test` (vitest) to verify changes
-- 65 tools across 20 tool modules, 5 split entry points + 1 main index
+- 66 tools across 20 tool modules, 5 split entry points + 1 main index
 
 ## Conventions
 
@@ -13,7 +13,7 @@
 - **Optimistic locking**: PUT requests require `version` field in body
 - **IDs**: UUIDs for all resources (use `UuidSchema` from `schemas/common.ts`)
 - **Pagination**: 0-indexed `page` + `size` params (use `PaginationParams` spread)
-- **Deeplinks**: Generated client-side: `https://app.lexware.io/permalink/<type>/edit/<id>`
+- **Deeplinks**: Generated client-side. Sales vouchers use `edit/` (`invoices`, `credit-notes`, `quotations`, `order-confirmations`, `delivery-notes`, `down-payment-invoices`, `dunnings`); contacts use `view/` (no edit permalink per Lexware docs). Pattern: `https://app.lexware.io/permalink/<type>/<edit|view>/<id>`.
 - **File downloads**: Use `lexwareDownload()` from `services/lexware.ts` — returns base64
 - **File uploads**: Use `lexwareUpload()` from `services/lexware.ts` — uses `form-data`
 

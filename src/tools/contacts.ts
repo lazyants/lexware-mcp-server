@@ -52,11 +52,11 @@ export function registerContactTools(server: McpServer): void {
 
   server.registerTool('lexware_deeplink_contact', {
     title: 'Deeplink Contact',
-    description: 'Get a direct URL to view/edit a contact in the Lexware web app.',
+    description: 'Get a direct URL to view a contact in the Lexware web app.',
     inputSchema: z.object({ id: UuidSchema.describe('Contact ID') }),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async (params) => {
-    const url = `https://app.lexware.io/permalink/contacts/edit/${params.id}`;
+    const url = `https://app.lexware.io/permalink/contacts/view/${params.id}`;
     return formatResponse({ url });
   });
 }

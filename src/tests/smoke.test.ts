@@ -72,8 +72,8 @@ function registerAndCount(registerFns: Array<(s: ReturnType<typeof createServer>
 }
 
 describe('smoke tests', () => {
-  it('registers exactly 65 tools in full server', () => {
-    expect(registerAllAndCount()).toBe(65);
+  it('registers exactly 66 tools in full server', () => {
+    expect(registerAllAndCount()).toBe(66);
   });
 
   it('entry-sales registers 35 tools', () => {
@@ -114,11 +114,11 @@ describe('smoke tests', () => {
     ])).toBe(5);
   });
 
-  it('entry-system registers 9 tools', () => {
+  it('entry-system registers 10 tools', () => {
     expect(registerAndCount([
       registerEventSubscriptionTools,
       registerFileTools,
       registerRecurringTemplateTools,
-    ])).toBe(9);
+    ])).toBe(10);
   });
 });

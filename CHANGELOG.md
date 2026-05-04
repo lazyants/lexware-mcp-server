@@ -8,6 +8,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm package: [`@lazyants/lexware-mcp-server`](https://www.npmjs.com/package/@lazyants/lexware-mcp-server)
 - MCP Registry: [`io.github.lazyants/lexware`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.lazyants/lexware)
 
+## [1.1.0] — 2026-05-04
+
+### Added
+
+- New tool `lexware_verify_webhook_signature`: verifies the
+  `X-Lxo-Signature` header (RSA-SHA512, base64) against the raw webhook
+  body using Node's `crypto`. Public key is fetched once from
+  `developers.lexware.io` and cached for the process; set
+  `LEXWARE_WEBHOOK_PUBLIC_KEY` (PEM) to override.
+- `eventType` description on `lexware_create_event_subscription` now
+  enumerates the documented event types from the Lexware docs.
+
+### Fixed
+
+- `lexware_deeplink_contact` now produces
+  `https://app.lexware.io/permalink/contacts/view/<id>` (Lexware docs
+  document `view/` for contacts; `edit/` was a dangling permalink).
+
+### Changed
+
+- Tool count: 65 → 66 in the full server, 9 → 10 in
+  `lexware-mcp-system`.
+
 ## [1.0.2] — 2026-05-04
 
 ### Security
@@ -67,6 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[1.1.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v1.1.0
 [1.0.2]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v1.0.2
 [1.0.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v1.0.1
 [1.0.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v1.0.0

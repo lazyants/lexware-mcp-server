@@ -4,7 +4,7 @@
 
 MCP server for the [Lexware Office API](https://developers.lexware.io/docs/). Manage invoices, contacts, articles, vouchers, and more through the Model Context Protocol.
 
-**65 tools** across 20 resource domains, with 6 entry points so you can pick the right server for your MCP client's tool limit.
+**66 tools** across 20 resource domains, with 6 entry points so you can pick the right server for your MCP client's tool limit.
 
 ## Installation
 
@@ -32,12 +32,12 @@ Get a token from the [Lexware Office API settings](https://app.lexware.de/addons
 
 | Command | Domains | Tools |
 |---|---|---|
-| `lexware-mcp-server` | All 20 domains | 65 |
+| `lexware-mcp-server` | All 20 domains | 66 |
 | `lexware-mcp-sales` | Invoices, Credit Notes, Quotations, Order Confirmations, Delivery Notes, Down Payment Invoices, Dunnings, Voucherlist | 35 |
 | `lexware-mcp-contacts` | Contacts, Articles | 10 |
 | `lexware-mcp-bookkeeping` | Vouchers, Voucherlist, Payments | 7 |
 | `lexware-mcp-reference` | Countries, Payment Conditions, Posting Categories, Profile, Print Layouts | 5 |
-| `lexware-mcp-system` | Event Subscriptions, Files, Recurring Templates | 9 |
+| `lexware-mcp-system` | Event Subscriptions, Files, Recurring Templates | 10 |
 
 Use split servers to reduce context size — pick only the splits you need.
 
@@ -166,9 +166,9 @@ Add to `claude_desktop_config.json`:
 
 `lexware_list_print_layouts`
 
-### Event Subscriptions (4 tools) — system
+### Event Subscriptions (5 tools) — system
 
-`lexware_create_event_subscription`, `lexware_list_event_subscriptions`, `lexware_get_event_subscription`, `lexware_delete_event_subscription`
+`lexware_create_event_subscription`, `lexware_list_event_subscriptions`, `lexware_get_event_subscription`, `lexware_delete_event_subscription`, `lexware_verify_webhook_signature`
 
 ### Files (3 tools) — system
 

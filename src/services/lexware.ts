@@ -1,4 +1,6 @@
 import axios, { AxiosInstance, AxiosError, Method } from 'axios';
+import { get as httpsGet } from 'node:https';
+import { createPublicKey } from 'node:crypto';
 import { LEXWARE_API_BASE, MAX_RETRIES, REQUEST_TIMEOUT } from '../constants.js';
 import { LexwareLegacyError, LexwareStandardError } from '../types/common.js';
 
@@ -151,6 +153,58 @@ export async function lexwareUpload<T = unknown>(
     },
   });
   return response.data;
+}
+
+const WEBHOOK_PUBLIC_KEY_URL =
+  'https://developers.lexware.io/webhookSignature/public/public_key.pub';
+
+// Cache the in-flight Promise (single-flight) so concurrent first callers
+// share one network fetch. Cleared on rejection so the next call retries.
+let webhookKeyCache: Promise<string> | null = null;
+
+export function getWebhookPublicKey(): Promise<string> {
+  const override = process.env.LEXWARE_WEBHOOK_PUBLIC_KEY;
+  if (override) return Promise.resolve(override);
+  if (webhookKeyCache) return webhookKeyCache;
+
+  const pending = fetchAndValidatePublicKey().catch((err) => {
+    if (webhookKeyCache === pending) webhookKeyCache = null;
+    throw err;
+  });
+  webhookKeyCache = pending;
+  return pending;
+}
+
+function fetchAndValidatePublicKey(): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const req = httpsGet(WEBHOOK_PUBLIC_KEY_URL, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        reject(new Error(`Public key fetch failed: HTTP ${res.statusCode}`));
+        return;
+      }
+      const chunks: Buffer[] = [];
+      res.on('data', (c: Buffer) => chunks.push(c));
+      res.on('end', () => {
+        const pem = Buffer.concat(chunks).toString('utf8');
+        try {
+          createPublicKey(pem);
+        } catch {
+          reject(new Error('Public key fetch returned invalid PEM'));
+          return;
+        }
+        resolve(pem);
+      });
+      res.on('error', reject);
+    });
+    req.setTimeout(REQUEST_TIMEOUT, () => req.destroy(new Error('Public key fetch timed out')));
+    req.on('error', reject);
+  });
+}
+
+// Test-only: reset cached webhook key. Underscore-prefixed to signal internal use.
+export function __resetWebhookKeyCache(): void {
+  webhookKeyCache = null;
 }
 
 export async function lexwareDownload(
