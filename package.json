@@ -17,7 +17,11 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest run",
-    "prepublishOnly": "npm run build"
+    "check-versions": "node scripts/check-versions.mjs",
+    "prepublishOnly": "node scripts/check-versions.mjs && npm run build"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "files": [
     "dist",

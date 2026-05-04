@@ -17,6 +17,9 @@ jobs:
         with:
           node-version: 20
 
+      - name: Verify version sync
+        run: node scripts/check-versions.mjs
+
       - name: Install mcp-publisher
         run: |
           curl -sL https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz | tar xz
