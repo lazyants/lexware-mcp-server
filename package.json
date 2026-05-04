@@ -17,6 +17,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest run",
+    "lint": "eslint .",
     "check-versions": "node scripts/check-versions.mjs",
     "prepublishOnly": "node scripts/check-versions.mjs && npm run build"
   },
@@ -51,8 +52,12 @@
     "zod": "^4.4.0"
   },
   "devDependencies": {
-    "typescript": "^6.0.0",
+    "@eslint/js": "^9.39.4",
     "@types/node": "^20.0.0",
+    "eslint": "^9.39.4",
+    "globals": "^15.15.0",
+    "typescript": "^6.0.0",
+    "typescript-eslint": "^8.59.2",
     "vitest": "^4.1.0"
   }
 }

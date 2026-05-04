@@ -31,6 +31,7 @@ function registerAllAndCount(): number {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   server.registerTool = ((...args: any[]) => {
     count++;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (orig as any).apply(server, args);
   }) as typeof server.registerTool;
 
@@ -65,6 +66,7 @@ function registerAndCount(registerFns: Array<(s: ReturnType<typeof createServer>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   server.registerTool = ((...args: any[]) => {
     count++;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (orig as any).apply(server, args);
   }) as typeof server.registerTool;
   for (const fn of registerFns) fn(server);
