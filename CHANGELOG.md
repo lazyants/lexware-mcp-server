@@ -12,8 +12,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- License updated to [FSL-1.1-MIT](LICENSE). Versions `1.1.0` and earlier
-  remain under their original MIT license.
+- **License updated to [FSL-1.1-MIT](LICENSE).** Versions `1.1.0` and
+  earlier remain under their original MIT license. (The license change
+  is what makes this a semver-major bump; the rest of the entries below
+  would be minor/patch on their own.)
+- **Dependencies:** bumped `zod` to `^4.4.0`, `typescript` to `^6.0.0`,
+  `vitest` to `^4.1.0`, `actions/checkout` to `v6`, `actions/setup-node`
+  to `v6`. Migrated 12 sites of `z.record(z.unknown())` to
+  `z.record(z.string(), z.unknown())` per zod 4's two-arg signature
+  requirement (key type narrowed from "anything" to `string`; net effect
+  on input validation is neutral-to-stricter).
+- **Releasing:** GitHub Releases now auto-publish to npm with provenance
+  (`--provenance --access public`) before pushing to the MCP Registry.
+  The workflow installs `mcp-publisher` early and smoke-tests it before
+  the irreversible `npm publish` so a broken publisher binary fails
+  fast. Skips `npm publish` cleanly if the version is already on npm
+  (cutover/recovery guard). Requires `NPM_TOKEN` repo secret as a
+  granular access token (classic legacy tokens fail silently with
+  `--provenance` per npm's 2024 enforcement).
+- **Dependabot:** added `ignore` rule for `@types/node` major bumps so
+  type definitions stay aligned with `engines.node >= 20`.
+
+### Added
+
+- **ESLint 9 flat config** (`eslint.config.mjs`) with
+  `tseslint.configs.recommended` + `globals.node`. New `npm run lint`
+  script, plus a Lint step in `test.yml` that runs before the version
+  sync and audit gates.
 
 ## [1.1.0] — 2026-05-04
 
