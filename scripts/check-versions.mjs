@@ -56,23 +56,58 @@ console.log(
   `[check-versions] OK — npm=${npmVersion}, packages[0]=${packagesVersion}, registry=${registryVersion}`
 );
 
-// MAJOR.MINOR.PATCH compare. Prerelease suffix (`-rc.1`, `-alpha`) is stripped
-// before parsing — for our regression check, `1.0.0-rc.1` is treated the same
-// as `1.0.0`. Strict semver prerelease ordering is not needed here.
+// Semver compare per https://semver.org/spec/v2.0.0.html §11.
+// Without prerelease handling, `2.0.0-rc.1` would compare equal to `2.0.0`
+// and a regression like registry=2.0.0-rc.1 vs packages[0]=2.0.0 would
+// silently pass the soft check.
 function compareSemver(a, b) {
   if (a === b) return 0;
-  const parts = (v) =>
-    v
-      .split('-')[0]
-      .split('.')
-      .map((p) => {
-        const n = parseInt(p, 10);
-        return Number.isFinite(n) ? n : 0;
-      });
-  const pa = parts(a);
-  const pb = parts(b);
+  const [coreA, preA = ''] = splitVersion(a);
+  const [coreB, preB = ''] = splitVersion(b);
   for (let i = 0; i < 3; i++) {
-    if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (coreA[i] !== coreB[i]) return coreA[i] - coreB[i];
+  }
+  // Equal core: §11 — version with prerelease has lower precedence than without.
+  if (preA === '' && preB === '') return 0;
+  if (preA === '') return 1;
+  if (preB === '') return -1;
+  return comparePrerelease(preA, preB);
+}
+
+function splitVersion(v) {
+  // §10: build metadata (`+...`) is ignored for precedence.
+  const stripped = v.replace(/\+.*$/, '');
+  const [core, ...rest] = stripped.split('-');
+  const parts = core.split('.').map((p) => {
+    if (!/^(0|[1-9]\d*)$/.test(p)) {
+      throw new Error(`[check-versions] malformed core segment "${p}" in version "${v}"`);
+    }
+    return parseInt(p, 10);
+  });
+  while (parts.length < 3) parts.push(0);
+  return [parts.slice(0, 3), rest.join('-')];
+}
+
+// §11 prerelease compare: identifier-by-identifier, numeric < alpha,
+// numerics compared as numbers, alphas lexically (ASCII), shorter set
+// loses on a tie when all preceding identifiers match.
+function comparePrerelease(a, b) {
+  const ai = a.split('.');
+  const bi = b.split('.');
+  const len = Math.max(ai.length, bi.length);
+  for (let i = 0; i < len; i++) {
+    if (ai[i] === undefined) return -1;
+    if (bi[i] === undefined) return 1;
+    const an = /^\d+$/.test(ai[i]);
+    const bn = /^\d+$/.test(bi[i]);
+    if (an && bn) {
+      const diff = parseInt(ai[i], 10) - parseInt(bi[i], 10);
+      if (diff !== 0) return diff;
+    } else if (an !== bn) {
+      return an ? -1 : 1;
+    } else if (ai[i] !== bi[i]) {
+      return ai[i] < bi[i] ? -1 : 1;
+    }
   }
   return 0;
 }

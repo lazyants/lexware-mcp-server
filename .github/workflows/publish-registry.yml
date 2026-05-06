@@ -14,10 +14,21 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # NOTE: do NOT set `registry-url` here. With Trusted Publishing
+      # the OIDC token is the only credential we want present; setting
+      # `registry-url` makes setup-node write an .npmrc that reads from
+      # `NODE_AUTH_TOKEN`, which then gets populated with the runner's
+      # GITHUB_TOKEN. npm publish tries to auth with that, fails, and
+      # returns a misleading 404 — TP never fires.
       - uses: actions/setup-node@v6
         with:
           node-version: 20
-          registry-url: 'https://registry.npmjs.org'
+
+      # Node 20 LTS ships with npm 10, which predates Trusted Publishing
+      # (added in npm 11.5+). Without this upgrade, `npm publish` ignores
+      # the OIDC env vars and exits with ENEEDAUTH.
+      - name: Upgrade npm to a TP-capable version
+        run: npm install -g npm@latest
 
       - name: Verify version sync
         run: node scripts/check-versions.mjs
@@ -27,14 +38,22 @@ jobs:
           npm ci
           npm run build
 
-      # Install mcp-publisher BEFORE npm publish so a broken `latest`
-      # binary fails the workflow before the irreversible npm publish.
-      # The actual `mcp-publisher publish` call still runs after npm
-      # publish succeeds and propagation completes.
+      # Install mcp-publisher BEFORE npm publish so a broken or unexpectedly
+      # behaviorally-changed binary fails the workflow before the irreversible
+      # npm publish. Pinned to a known-good version + SHA-256 so a breaking
+      # upstream release does NOT silently become the new `latest`.
+      # Bump in lockstep across all sibling repos.
       - name: Install mcp-publisher
+        env:
+          MCP_PUBLISHER_VERSION: v1.7.8
+          MCP_PUBLISHER_SHA256: 48230dbec85bd88a0d42977ef533cddda23235f0db4331b9263ce53b432cb75c
         run: |
-          curl -sL https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz | tar xz
+          curl -fsSL -o mcp-publisher.tar.gz \
+            "https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+          echo "${MCP_PUBLISHER_SHA256}  mcp-publisher.tar.gz" | sha256sum -c -
+          tar xzf mcp-publisher.tar.gz
           sudo mv mcp-publisher /usr/local/bin/
+          rm mcp-publisher.tar.gz
           mcp-publisher --help >/dev/null
 
       # Cutover/recovery guard: skip npm publish if the version is already
@@ -52,23 +71,29 @@ jobs:
             echo "already_published=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Auth via npm Trusted Publishing: the `id-token: write` permission
+      # plus the trusted-publisher binding configured in the npm web UI
+      # is exchanged for a one-shot publish token automatically. No
+      # NPM_TOKEN secret is required.
       - name: Publish to npm
         if: steps.npm_check.outputs.already_published == 'false'
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      # Poll the dist.tarball CDN URL — not just metadata. The npm metadata
+      # endpoint can become available before the CDN tarball does, so a
+      # metadata-only check can let `mcp-publisher publish` race a 404.
       - name: Wait for npm registry propagation
         run: |
           version=$(node -p "require('./package.json').version")
           for i in {1..18}; do
-            if npm view "@lazyants/lexware-mcp-server@${version}" version >/dev/null 2>&1; then
-              echo "npm tarball available after ${i} retries"
+            tarball=$(npm view "@lazyants/lexware-mcp-server@${version}" dist.tarball 2>/dev/null || true)
+            if [ -n "$tarball" ] && curl -fsSIL "$tarball" >/dev/null 2>&1; then
+              echo "npm tarball fetchable after ${i} retries: $tarball"
               exit 0
             fi
             sleep 5
           done
-          echo "::error::npm tarball not available after 90s — aborting"
+          echo "::error::npm tarball not fetchable after 90s — aborting"
           exit 1
 
       - name: Authenticate and publish to MCP Registry
