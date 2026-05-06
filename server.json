@@ -6,7 +6,7 @@
     "url": "https://github.com/lazyants/lexware-mcp-server",
     "source": "github"
   },
-  "version": "2.0.0",
+  "version": "2.0.1",
   "icon": {
     "src": "https://raw.githubusercontent.com/lazyants/lexware-mcp-server/main/logo.png",
     "mimeType": "image/png",
@@ -16,7 +16,7 @@
     {
       "registryType": "npm",
       "identifier": "@lazyants/lexware-mcp-server",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "transport": {
         "type": "stdio"
       }

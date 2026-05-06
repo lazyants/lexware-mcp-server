@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm package: [`@lazyants/lexware-mcp-server`](https://www.npmjs.com/package/@lazyants/lexware-mcp-server)
 - MCP Registry: [`io.github.lazyants/lexware`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.lazyants/lexware)
 
+## [2.0.1] — 2026-05-06
+
+### Security
+
+- Bumped transitive dependencies in the lockfile to clear the
+  `ip-address` XSS advisory ([GHSA-v2v4-37r5-5v8g](https://github.com/advisories/GHSA-v2v4-37r5-5v8g)):
+  `express-rate-limit` 8.3.1 → 8.5.1 and `ip-address` 10.1.0 → 10.2.0,
+  both pulled in transitively via `@modelcontextprotocol/sdk`'s HTTP
+  stack. `package.json` ranges unchanged. The vulnerable code paths
+  (`express-rate-limit`, HTTP transport) are not exercised by this
+  server — it uses `StdioServerTransport` only — so the XSS is not
+  reachable in the running app; the bump is `npm audit` gate hygiene.
+
+### Changed
+
+- First release cut against the cross-ported publish pipeline (npm
+  Trusted Publishing + provenance, no `NPM_TOKEN` secret). Required
+  the `registry-url`, npm-version, and binding fixes that landed in
+  `2.0.0` plus the cross-port commit on `main`.
+
 ## [2.0.0] — 2026-05-04
 
 ### Changed
