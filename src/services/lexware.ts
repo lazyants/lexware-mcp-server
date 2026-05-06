@@ -82,7 +82,7 @@ function stripUndefined(obj: Record<string, unknown>): Record<string, unknown> {
 
 function formatError(err: AxiosError): Error {
   if (!err.response) {
-    return new Error(`Network error: ${err.message}`);
+    return new Error(`Network error: ${err.message}`, { cause: err });
   }
 
   const body = err.response.data;
@@ -93,16 +93,16 @@ function formatError(err: AxiosError): Error {
     const issues = legacy.IssueList.map(
       (i) => `[${i.type}] ${i.source}: ${i.i18nKey}`
     ).join('; ');
-    return new Error(`Lexware API validation error: ${issues}`);
+    return new Error(`Lexware API validation error: ${issues}`, { cause: err });
   }
 
   // Standard error format
   const standard = body as LexwareStandardError | undefined;
   if (standard?.message) {
-    return new Error(`Lexware API [${standard.status}]: ${standard.message}`);
+    return new Error(`Lexware API [${standard.status}]: ${standard.message}`, { cause: err });
   }
 
-  return new Error(`Lexware API error: ${err.response.status} ${err.response.statusText}`);
+  return new Error(`Lexware API error: ${err.response.status} ${err.response.statusText}`, { cause: err });
 }
 
 export async function lexwareRequest<T = unknown>(
@@ -125,7 +125,7 @@ export async function lexwareRequest<T = unknown>(
       throw formatError(err);
     }
     if (err instanceof AxiosError && err.code) {
-      throw new Error(`Network error: ${err.message}`);
+      throw new Error(`Network error: ${err.message}`, { cause: err });
     }
     throw err;
   }

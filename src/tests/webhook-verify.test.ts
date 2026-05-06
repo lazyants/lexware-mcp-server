@@ -26,7 +26,6 @@ function captureVerifyTool(): ToolHandler {
   const server = createServer('test');
   let captured: ToolHandler | undefined;
   const orig = server.registerTool;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   server.registerTool = ((...args: any[]) => {
     if (args[0] === 'lexware_verify_webhook_signature') {
       captured = args[2] as ToolHandler;

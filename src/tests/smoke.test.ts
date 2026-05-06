@@ -28,10 +28,8 @@ function registerAllAndCount(): number {
   // GOTCHA: McpServer.registerTool has overloaded signatures — TypeScript rejects
   // spreading Parameters<> for overloads. Use `any` + `.apply()` to bypass.
   const orig = server.registerTool;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   server.registerTool = ((...args: any[]) => {
     count++;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (orig as any).apply(server, args);
   }) as typeof server.registerTool;
 
@@ -63,10 +61,8 @@ function registerAndCount(registerFns: Array<(s: ReturnType<typeof createServer>
   const server = createServer('test');
   let count = 0;
   const orig = server.registerTool;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   server.registerTool = ((...args: any[]) => {
     count++;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (orig as any).apply(server, args);
   }) as typeof server.registerTool;
   for (const fn of registerFns) fn(server);
