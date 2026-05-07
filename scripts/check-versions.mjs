@@ -35,9 +35,8 @@ if (npmVersion !== packagesVersion) {
 }
 
 // SOFT: server.json#/version (the registry version) should be >= packages[0].version.
-// Registry-only republishes bump only the root version (see commit 01618d8 for the
-// precedent — root 1.0.1 with packages[0] still 1.0.0). CLAUDE.md documents that
-// these CAN differ. We only warn on regressions.
+// Registry-only republishes bump only the root version. CLAUDE.md documents
+// that these CAN differ. We only warn on regressions.
 if (compareSemver(registryVersion, packagesVersion) < 0) {
   warnings.push(
     `server.json#/version (${registryVersion}) < server.json#/packages[0].version (${packagesVersion}). ` +
