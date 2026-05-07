@@ -27,8 +27,13 @@ jobs:
       # Node 20 LTS ships with npm 10, which predates Trusted Publishing
       # (added in npm 11.5+). Without this upgrade, `npm publish` ignores
       # the OIDC env vars and exits with ENEEDAUTH.
+      #
+      # Pinned to npm@^11 (not @latest) to keep the release path
+      # reproducible: npm 12 may raise its Node engine floor above
+      # the runner's Node 20, which would silently break releases on
+      # any branch or scheduled run without a repo-level change.
       - name: Upgrade npm to a TP-capable version
-        run: npm install -g npm@latest
+        run: npm install -g npm@^11
 
       - name: Verify version sync
         run: node scripts/check-versions.mjs
