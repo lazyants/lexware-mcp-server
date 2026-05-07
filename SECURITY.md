@@ -1,5 +1,15 @@
 # Security Policy
 
+## Project status
+
+`@lazyants/lexware-mcp-server` is an independent, community-maintained MCP server. It is
+**not** an official product of, endorsed by, or affiliated with the
+Lexware Office Public API vendor, Anthropic, or the Model Context Protocol
+project. Security guarantees are limited to what this repository's
+maintainers commit to in [Reporting a vulnerability](#reporting-a-vulnerability)
+below; the upstream vendor's security team is not responsible for issues in
+this wrapper.
+
 ## Supported versions
 
 | Version | Supported |
