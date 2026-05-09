@@ -22,18 +22,55 @@ npx @lazyants/lexware-mcp-server
 
 ## Configuration
 
-Set your Lexware Office API token:
+The API token is resolved in this order:
+
+1. **OS keyring** (recommended — token never written to disk in plain text)
+2. **Environment variable** `LEXWARE_API_TOKEN`
+
+### Store the token in the OS keyring
+
+Get your token from the [Lexware Office API settings](https://app.lexware.de/addons/public-api), then store it with the native credential manager for your OS.
+
+#### macOS
+
+```bash
+security add-generic-password -s "lexware-mcp" -a "api-token" -w "YOUR_TOKEN_HERE"
+```
+
+#### Windows (PowerShell)
+
+```powershell
+cmdkey /generic:lexware-mcp /user:api-token /pass:YOUR_TOKEN_HERE
+```
+
+#### Linux
+
+```bash
+secret-tool store --label="Lexware Office API" service lexware-mcp username api-token
+# (prompts for the token value)
+```
+
+Once stored, MCP config files need no credentials at all — the server reads the token from the keyring at startup.
+
+### Use an environment variable instead
+
+If you prefer not to use the keyring, set `LEXWARE_API_TOKEN` in your shell or MCP client config:
 
 ```bash
 export LEXWARE_API_TOKEN=your-token-here
 ```
 
-Get a token from the [Lexware Office API settings](https://app.lexware.de/addons/public-api).
+### Environment variables
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `LEXWARE_API_TOKEN` | — | API token; used when the keyring has no entry for the configured service |
+| `LEXWARE_KEYRING_SERVICE` | `lexware-mcp` | Keyring service name. Override when connecting to multiple Lexware accounts simultaneously — run one server instance per account, each with its own service name |
 
 ## Entry Points
 
 | Command | Domains | Tools |
-|---|---|---|
+| --- | --- | --- |
 | `lexware-mcp-server` | All 20 domains | 64 |
 | `lexware-mcp-sales` | Invoices, Credit Notes, Quotations, Order Confirmations, Delivery Notes, Down Payment Invoices, Dunnings, Voucherlist | 33 |
 | `lexware-mcp-contacts` | Contacts, Articles | 10 |
@@ -45,7 +82,20 @@ Use split servers to reduce context size — pick only the splits you need.
 
 ## Claude Code
 
-Add to `~/.claude/settings.json`:
+Add to `~/.claude/settings.json`. If you stored the token in the OS keyring under the default service name `lexware-mcp` (recommended), no `env` key is needed:
+
+```json
+{
+  "mcpServers": {
+    "lexware": {
+      "command": "npx",
+      "args": ["-y", "@lazyants/lexware-mcp-server"]
+    }
+  }
+}
+```
+
+If you prefer the environment variable approach:
 
 ```json
 {
@@ -53,28 +103,45 @@ Add to `~/.claude/settings.json`:
     "lexware": {
       "command": "npx",
       "args": ["-y", "@lazyants/lexware-mcp-server"],
-      "env": {
-        "LEXWARE_API_TOKEN": "your-token-here"
-      }
+      "env": { "LEXWARE_API_TOKEN": "your-token-here" }
     }
   }
 }
 ```
 
-Or use split servers (pick the splits you need):
+### Split servers
+
+Use split servers to reduce context size — pick only the entry points you need. The `-p @lazyants/lexware-mcp-server` flag tells `npx` which package to source the command from; the final argument (e.g. `lexware-mcp-sales`) is the specific entry-point binary defined in that package (see [Entry Points](#entry-points)):
 
 ```json
 {
   "mcpServers": {
     "lexware-sales": {
       "command": "npx",
-      "args": ["-y", "-p", "@lazyants/lexware-mcp-server", "lexware-mcp-sales"],
-      "env": { "LEXWARE_API_TOKEN": "your-token-here" }
+      "args": ["-y", "-p", "@lazyants/lexware-mcp-server", "lexware-mcp-sales"]
     },
     "lexware-contacts": {
       "command": "npx",
-      "args": ["-y", "-p", "@lazyants/lexware-mcp-server", "lexware-mcp-contacts"],
-      "env": { "LEXWARE_API_TOKEN": "your-token-here" }
+      "args": ["-y", "-p", "@lazyants/lexware-mcp-server", "lexware-mcp-contacts"]
+    }
+  }
+}
+```
+
+Multi-account example (two Lexware companies, tokens stored under separate keyring service names):
+
+```json
+{
+  "mcpServers": {
+    "lexware-company-a": {
+      "command": "npx",
+      "args": ["-y", "@lazyants/lexware-mcp-server"],
+      "env": { "LEXWARE_KEYRING_SERVICE": "lexware-company-a" }
+    },
+    "lexware-company-b": {
+      "command": "npx",
+      "args": ["-y", "@lazyants/lexware-mcp-server"],
+      "env": { "LEXWARE_KEYRING_SERVICE": "lexware-company-b" }
     }
   }
 }
@@ -82,7 +149,20 @@ Or use split servers (pick the splits you need):
 
 ## Claude Desktop
 
-Add to `claude_desktop_config.json`:
+Add to `claude_desktop_config.json`. With the OS keyring (recommended — assumes the token is stored under the default service name `lexware-mcp`):
+
+```json
+{
+  "mcpServers": {
+    "lexware": {
+      "command": "npx",
+      "args": ["-y", "@lazyants/lexware-mcp-server"]
+    }
+  }
+}
+```
+
+With an environment variable instead:
 
 ```json
 {
@@ -90,9 +170,7 @@ Add to `claude_desktop_config.json`:
     "lexware": {
       "command": "npx",
       "args": ["-y", "@lazyants/lexware-mcp-server"],
-      "env": {
-        "LEXWARE_API_TOKEN": "your-token-here"
-      }
+      "env": { "LEXWARE_API_TOKEN": "your-token-here" }
     }
   }
 }
@@ -182,6 +260,7 @@ Add to `claude_desktop_config.json`:
 
 ## Security
 
+- **Use the OS keyring** to keep your API token out of config files and shell history entirely (see [Configuration](#configuration))
 - **Never commit your API token** to version control
 - Use **read-only** access when you only need to list/get resources
 - **Create, update, and delete tools modify real business data** — invoices, contacts, and accounting records in your Lexware account

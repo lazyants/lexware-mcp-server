@@ -4,9 +4,16 @@ import { AxiosError, AxiosHeaders } from 'axios';
 
 // GOTCHA: vi.mock is hoisted above top-level const declarations. Use vi.hoisted()
 // to create mock fns that are accessible inside the vi.mock factory.
-const { mockRequest, mockCreate } = vi.hoisted(() => ({
+const { mockRequest, mockCreate, mockGetPassword } = vi.hoisted(() => ({
   mockRequest: vi.fn(),
   mockCreate: vi.fn(),
+  mockGetPassword: vi.fn<() => string | null>().mockReturnValue(null),
+}));
+
+// GOTCHA: Entry is called with `new`, so the implementation must be a regular
+// function (not an arrow function), otherwise JS throws "not a constructor".
+vi.mock('@napi-rs/keyring', () => ({
+  Entry: vi.fn(function () { return { getPassword: mockGetPassword }; } as any),
 }));
 
 // GOTCHA: Must use importOriginal to preserve AxiosError class — a plain mock
@@ -31,12 +38,15 @@ vi.mock('axios', async (importOriginal) => {
 
 describe('lexware client', () => {
   const originalEnv = process.env.LEXWARE_API_TOKEN;
+  const originalKeyringService = process.env.LEXWARE_KEYRING_SERVICE;
 
   beforeEach(() => {
     vi.resetModules();
     process.env.LEXWARE_API_TOKEN = 'test-token';
+    delete process.env.LEXWARE_KEYRING_SERVICE;
     mockRequest.mockReset();
     mockCreate.mockClear();
+    mockGetPassword.mockReturnValue(null);
     const mockInstance = {
       request: mockRequest,
       interceptors: { response: { use: vi.fn() } },
@@ -50,9 +60,14 @@ describe('lexware client', () => {
     } else {
       delete process.env.LEXWARE_API_TOKEN;
     }
+    if (originalKeyringService !== undefined) {
+      process.env.LEXWARE_KEYRING_SERVICE = originalKeyringService;
+    } else {
+      delete process.env.LEXWARE_KEYRING_SERVICE;
+    }
   });
 
-  it('throws when LEXWARE_API_TOKEN is missing', async () => {
+  it('throws when LEXWARE_API_TOKEN is missing and keyring returns null', async () => {
     delete process.env.LEXWARE_API_TOKEN;
     const { lexwareRequest } = await import('../services/lexware.js');
     await expect(lexwareRequest('GET', '/profile')).rejects.toThrow('LEXWARE_API_TOKEN');
@@ -67,6 +82,28 @@ describe('lexware client', () => {
     );
     expect(message).toContain('https://app.lexware.de/addons/public-api');
     expect(message).not.toContain('lexware.io');
+  });
+
+  it('uses keyring token when available, ignoring env var', async () => {
+    mockGetPassword.mockReturnValue('keyring-token');
+    mockRequest.mockResolvedValue({ data: { ok: true } });
+    const { lexwareRequest } = await import('../services/lexware.js');
+    await lexwareRequest('GET', '/profile');
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer keyring-token' }),
+      })
+    );
+  });
+
+  it('uses LEXWARE_KEYRING_SERVICE as keyring service name', async () => {
+    const { Entry } = await import('@napi-rs/keyring');
+    process.env.LEXWARE_KEYRING_SERVICE = 'my-company';
+    mockGetPassword.mockReturnValue('company-token');
+    mockRequest.mockResolvedValue({ data: {} });
+    const { lexwareRequest } = await import('../services/lexware.js');
+    await lexwareRequest('GET', '/profile');
+    expect(Entry).toHaveBeenCalledWith('my-company', 'api-token');
   });
 
   it('creates client with correct base URL and auth header', async () => {
