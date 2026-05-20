@@ -41,10 +41,11 @@ describe('formatResponse', () => {
     expect(result.structuredContent).toBeUndefined();
   });
 
-  it('handles arrays with structuredContent', () => {
+  it('omits structuredContent for arrays (MCP SDK rejects arrays there)', () => {
     const data = [1, 2, 3];
     const result = formatResponse(data);
-    expect(result.structuredContent).toEqual(data);
+    expect(result.content[0]).toEqual({ type: 'text', text: JSON.stringify(data, null, 2) });
+    expect(result.structuredContent).toBeUndefined();
   });
 });
 

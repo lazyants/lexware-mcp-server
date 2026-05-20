@@ -12,8 +12,9 @@ export function formatResponse(data: unknown): CallToolResult {
   const result: CallToolResult = {
     content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
   };
-  // GOTCHA: DELETE responses return empty strings (204). Only set structuredContent for objects.
-  if (data !== null && typeof data === 'object') {
+  // GOTCHA: DELETE responses return empty strings (204), arrays are rejected by the MCP
+  // SDK in structuredContent. Only set it for plain objects.
+  if (data !== null && typeof data === 'object' && !Array.isArray(data)) {
     result.structuredContent = data as Record<string, unknown>;
   }
   return result;

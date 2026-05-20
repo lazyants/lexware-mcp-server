@@ -40,10 +40,9 @@ describe('payment-conditions tool registry', () => {
       );
     });
 
-    it('returns the array payload as JSON text (arrays do NOT populate structuredContent)', async () => {
-      // GOTCHA from `formatResponse`: only objects (non-array) get `structuredContent`,
-      // because the MCP SDK rejects arrays there. The tool result for an array
-      // payload must surface in `content[0].text` as the stringified JSON.
+    it('returns the array payload as JSON text without structuredContent', async () => {
+      // GOTCHA from `formatResponse`: the MCP SDK rejects arrays in `structuredContent`.
+      // Array payloads must surface in `content[0].text` as the stringified JSON only.
       const payload = [
         { id: 'pc-1', paymentTermLabel: 'Net 14' },
         { id: 'pc-2', paymentTermLabel: 'Net 30' },
@@ -57,11 +56,7 @@ describe('payment-conditions tool registry', () => {
       };
       expect(result.content[0].type).toBe('text');
       expect(JSON.parse(result.content[0].text)).toEqual(payload);
-      // Arrays ARE objects in JS, so `formatResponse` happens to still set
-      // structuredContent; lock in the *actual* behaviour for regression
-      // detection (the comment above describes the design intent — if a
-      // future fix narrows the type check, this assertion will catch it).
-      expect(result.structuredContent).toEqual(payload);
+      expect(result.structuredContent).toBeUndefined();
     });
   });
 });
