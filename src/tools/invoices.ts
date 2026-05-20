@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
-import { UuidSchema, VersionParam } from '../schemas/common.js';
+import { UuidSchema } from '../schemas/common.js';
 
 export function registerInvoiceTools(server: McpServer): void {
   server.registerTool('lexware_create_invoice', {
@@ -82,11 +82,23 @@ export function registerInvoiceTools(server: McpServer): void {
   // through the `finalize` parameter on `lexware_create_invoice` above.
 
   server.registerTool('lexware_pursue_invoice', {
-    title: 'Pursue Invoice',
-    description: 'Transition an invoice from draft to open/pending status.',
+    title: 'Pursue to an Invoice',
+    description:
+      'Create a new invoice as a follow-up to a preceding sales voucher (quotation, order confirmation, or delivery note). ' +
+      'Maps to the documented `POST /invoices?precedingSalesVoucherId={id}[&finalize=true]` endpoint. ' +
+      'Set finalize=true to immediately finalize the new invoice (status "open"); omit or false to create as draft.',
     inputSchema: z.object({
-      id: UuidSchema.describe('Invoice UUID'),
-      ...VersionParam,
+      precedingSalesVoucherId: UuidSchema.describe(
+        'UUID of the preceding sales voucher (quotation, order confirmation, or delivery note) that this invoice is pursued from.'
+      ),
+      body: z.record(z.string(), z.unknown()).describe(
+        'Invoice JSON body. Same shape as lexware_create_invoice. Required fields: voucherDate, address, lineItems, totalPrice, taxConditions. ' +
+        'See Lexware API docs for full schema.'
+      ),
+      finalize: z.boolean().optional().describe(
+        'When true, creates the invoice in finalized "open" status. When false or omitted, creates as draft. ' +
+        'Maps to the documented ?finalize=true query parameter.'
+      ),
     }),
     annotations: {
       readOnlyHint: false,
@@ -95,7 +107,17 @@ export function registerInvoiceTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    return lexwareRequest('POST', `/invoices/${params.id}/actions/pursue`, undefined, { version: params.version });
+    // Documented endpoint: POST /v1/invoices?precedingSalesVoucherId={id}[&finalize=true]
+    // The pursue action is a CREATE on /invoices with a chaining query param, NOT a
+    // status transition on an existing invoice. The prior implementation hit an
+    // undocumented `POST /invoices/{id}/actions/pursue` path that returns HTTP 404
+    // on the live API.
+    // Only emit ?finalize when truthy — per the Lexware docs only `[&finalize=true]`
+    // is defined, and some HTTP parsers treat any non-empty query value (including
+    // the literal "false") as truthy.
+    const query: Record<string, unknown> = { precedingSalesVoucherId: params.precedingSalesVoucherId };
+    if (params.finalize === true) query.finalize = true;
+    return lexwareRequest('POST', '/invoices', params.body, query);
   }));
 
   server.registerTool('lexware_deeplink_invoice', {
