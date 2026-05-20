@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
-import { UuidSchema, VersionParam } from '../schemas/common.js';
+import { UuidSchema } from '../schemas/common.js';
 
 export function registerOrderConfirmationTools(server: McpServer): void {
   server.registerTool('lexware_create_order_confirmation', {
@@ -61,11 +61,17 @@ export function registerOrderConfirmationTools(server: McpServer): void {
   }));
 
   server.registerTool('lexware_pursue_order_confirmation', {
-    title: 'Pursue Order Confirmation',
-    description: 'Transition an order confirmation from draft to open/pending status.',
+    title: 'Pursue to an Order Confirmation',
+    description:
+      'Create a new order confirmation as a follow-up to a preceding quotation. ' +
+      'Maps to the documented `POST /order-confirmations?precedingSalesVoucherId={id}` endpoint.',
     inputSchema: z.object({
-      id: UuidSchema.describe('Order confirmation UUID'),
-      ...VersionParam,
+      precedingSalesVoucherId: UuidSchema.describe(
+        'UUID of the preceding quotation that this order confirmation is pursued from.'
+      ),
+      body: z.record(z.string(), z.unknown()).describe(
+        'Order confirmation JSON body. Same shape as lexware_create_order_confirmation. See Lexware API docs for full schema.'
+      ),
     }),
     annotations: {
       readOnlyHint: false,
@@ -74,7 +80,9 @@ export function registerOrderConfirmationTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    return lexwareRequest('POST', `/order-confirmations/${params.id}/actions/pursue`, undefined, { version: params.version });
+    return lexwareRequest('POST', '/order-confirmations', params.body, {
+      precedingSalesVoucherId: params.precedingSalesVoucherId,
+    });
   }));
 
   server.registerTool('lexware_deeplink_order_confirmation', {

@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
-import { UuidSchema, VersionParam } from '../schemas/common.js';
+import { UuidSchema } from '../schemas/common.js';
 
 export function registerDeliveryNoteTools(server: McpServer): void {
   server.registerTool('lexware_create_delivery_note', {
@@ -61,11 +61,17 @@ export function registerDeliveryNoteTools(server: McpServer): void {
   }));
 
   server.registerTool('lexware_pursue_delivery_note', {
-    title: 'Pursue Delivery Note',
-    description: 'Transition a delivery note from draft to open/pending status.',
+    title: 'Pursue to a Delivery Note',
+    description:
+      'Create a new delivery note as a follow-up to a preceding quotation or order confirmation. ' +
+      'Maps to the documented `POST /delivery-notes?precedingSalesVoucherId={id}` endpoint.',
     inputSchema: z.object({
-      id: UuidSchema.describe('Delivery note UUID'),
-      ...VersionParam,
+      precedingSalesVoucherId: UuidSchema.describe(
+        'UUID of the preceding sales voucher (quotation or order confirmation) that this delivery note is pursued from.'
+      ),
+      body: z.record(z.string(), z.unknown()).describe(
+        'Delivery note JSON body. Same shape as lexware_create_delivery_note. See Lexware API docs for full schema.'
+      ),
     }),
     annotations: {
       readOnlyHint: false,
@@ -74,7 +80,9 @@ export function registerDeliveryNoteTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    return lexwareRequest('POST', `/delivery-notes/${params.id}/actions/pursue`, undefined, { version: params.version });
+    return lexwareRequest('POST', '/delivery-notes', params.body, {
+      precedingSalesVoucherId: params.precedingSalesVoucherId,
+    });
   }));
 
   server.registerTool('lexware_deeplink_delivery_note', {

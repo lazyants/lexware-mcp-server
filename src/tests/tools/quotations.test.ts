@@ -22,15 +22,18 @@ describe('quotations tool registry', () => {
     mockLexwareDownload.mockReset();
   });
 
-  it('registers exactly the expected 5 quotation tools', async () => {
+  it('registers exactly the expected 4 quotation tools (no pursue_quotation)', async () => {
     const tools = await loadAndRegister();
     expect([...tools.keys()].sort()).toEqual([
       'lexware_create_quotation',
       'lexware_deeplink_quotation',
       'lexware_download_quotation_file',
       'lexware_get_quotation',
-      'lexware_pursue_quotation',
     ]);
+    // Regression guard: quotations are the start of the Lexware sales-voucher
+    // chain. There is no documented `Pursue to a Quotation` endpoint, and the
+    // prior implementation hit `POST /quotations/{id}/actions/pursue` which 404s.
+    expect(tools.has('lexware_pursue_quotation')).toBe(false);
   });
 
   describe('lexware_create_quotation', () => {
@@ -90,21 +93,6 @@ describe('quotations tool registry', () => {
         structuredContent: { fileName: string };
       };
       expect(result.structuredContent.fileName).toBe('quotation.pdf');
-    });
-  });
-
-  describe('lexware_pursue_quotation', () => {
-    it('POSTs /quotations/{id}/actions/pursue with version query param', async () => {
-      mockLexwareRequest.mockResolvedValue({ id: 'q-1', version: 2 });
-      const tools = await loadAndRegister();
-      const pursue = getTool(tools, 'lexware_pursue_quotation');
-      await pursue.handler({ id: 'q-1', version: 2 });
-      expect(mockLexwareRequest).toHaveBeenCalledExactlyOnceWith(
-        'POST',
-        '/quotations/q-1/actions/pursue',
-        undefined,
-        { version: 2 },
-      );
     });
   });
 

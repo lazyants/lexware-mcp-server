@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
-import { UuidSchema, VersionParam } from '../schemas/common.js';
+import { UuidSchema } from '../schemas/common.js';
 
 export function registerQuotationTools(server: McpServer): void {
   server.registerTool('lexware_create_quotation', {
@@ -60,22 +60,11 @@ export function registerQuotationTools(server: McpServer): void {
     };
   }));
 
-  server.registerTool('lexware_pursue_quotation', {
-    title: 'Pursue Quotation',
-    description: 'Transition a quotation from draft to open/pending status.',
-    inputSchema: z.object({
-      id: UuidSchema.describe('Quotation UUID'),
-      ...VersionParam,
-    }),
-    annotations: {
-      readOnlyHint: false,
-      destructiveHint: false,
-      idempotentHint: false,
-      openWorldHint: true,
-    },
-  }, handleToolRequest(async (params) => {
-    return lexwareRequest('POST', `/quotations/${params.id}/actions/pursue`, undefined, { version: params.version });
-  }));
+  // NOTE: lexware_pursue_quotation was removed because quotations are the start
+  // of the Lexware sales-voucher document chain and have no preceding voucher.
+  // The Lexware API documents no `Pursue to a Quotation` endpoint, and the prior
+  // implementation hit an undocumented `POST /quotations/{id}/actions/pursue` path
+  // that returns HTTP 404 on the live API.
 
   server.registerTool('lexware_deeplink_quotation', {
     title: 'Deeplink to Quotation',

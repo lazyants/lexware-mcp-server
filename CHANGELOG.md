@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   docs ("The status of an invoice cannot be changed via the
   api"), no per-id finalize action exists. Total tool count
   drops from 66 to 65.
+- `lexware_pursue_quotation` tool. Quotations are the start of
+  the Lexware sales-voucher document chain — there is no
+  preceding voucher to pursue from, and the Lexware API documents
+  no `Pursue to a Quotation` endpoint. The prior implementation
+  hit `POST /quotations/{id}/actions/pursue` which returns HTTP
+  404 on the live API. Total tool count drops from 65 to 64.
 
 ### Changed
 
@@ -27,6 +33,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `POST /invoices?finalize=true` query parameter — this is the
   only documented way to obtain a finalized invoice through the
   API.
+- **BREAKING**: `lexware_pursue_credit_note`,
+  `lexware_pursue_delivery_note`,
+  `lexware_pursue_order_confirmation`, and
+  `lexware_pursue_dunning` were rewired to the documented
+  `POST /<resource>?precedingSalesVoucherId={id}` Lexware
+  endpoints. The prior implementations hit undocumented
+  `POST /<resource>/{id}/actions/pursue` paths that return HTTP
+  404 on the live API. The input schema changed from
+  `{ id, version }` to `{ precedingSalesVoucherId, body }`
+  (plus an optional `finalize` boolean on `pursue_credit_note`,
+  which is the only sibling whose docs document `[&finalize=true]`
+  on the pursue endpoint). Callers using the old `{ id, version }`
+  shape will fail input validation.
 
 ## [2.0.1] — 2026-05-06
 

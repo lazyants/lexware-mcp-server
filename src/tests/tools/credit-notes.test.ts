@@ -98,17 +98,70 @@ describe('credit-notes tool registry', () => {
   });
 
   describe('lexware_pursue_credit_note', () => {
-    it('POSTs /credit-notes/{id}/actions/pursue with version query param', async () => {
-      mockLexwareRequest.mockResolvedValue({ id: 'cn-1', version: 2 });
+    // Documented endpoint:
+    //   POST /v1/credit-notes?precedingSalesVoucherId={id}[&finalize=true]
+    // The prior implementation hit an undocumented
+    // `POST /credit-notes/{id}/actions/pursue` path that returns HTTP 404 on the live API.
+    it('POSTs /credit-notes with precedingSalesVoucherId and body, no finalize when omitted', async () => {
+      mockLexwareRequest.mockResolvedValue({ id: 'cn-1', version: 1 });
       const tools = await loadAndRegister();
       const pursue = getTool(tools, 'lexware_pursue_credit_note');
-      await pursue.handler({ id: 'cn-1', version: 1 });
+      await pursue.handler({
+        precedingSalesVoucherId: '58e512ce-ea13-11eb-bac8-2f511e28942a',
+        body: { foo: 'bar' },
+      });
       expect(mockLexwareRequest).toHaveBeenCalledExactlyOnceWith(
         'POST',
-        '/credit-notes/cn-1/actions/pursue',
-        undefined,
-        { version: 1 },
+        '/credit-notes',
+        { foo: 'bar' },
+        { precedingSalesVoucherId: '58e512ce-ea13-11eb-bac8-2f511e28942a' },
       );
+    });
+
+    it('passes finalize=true through to the documented ?finalize query parameter', async () => {
+      mockLexwareRequest.mockResolvedValue({ id: 'cn-2', version: 1 });
+      const tools = await loadAndRegister();
+      const pursue = getTool(tools, 'lexware_pursue_credit_note');
+      await pursue.handler({
+        precedingSalesVoucherId: '58e512ce-ea13-11eb-bac8-2f511e28942a',
+        body: { foo: 'bar' },
+        finalize: true,
+      });
+      expect(mockLexwareRequest).toHaveBeenCalledExactlyOnceWith(
+        'POST',
+        '/credit-notes',
+        { foo: 'bar' },
+        {
+          precedingSalesVoucherId: '58e512ce-ea13-11eb-bac8-2f511e28942a',
+          finalize: true,
+        },
+      );
+    });
+
+    it('treats finalize=false as draft (no ?finalize on the wire)', async () => {
+      mockLexwareRequest.mockResolvedValue({ id: 'cn-3', version: 1 });
+      const tools = await loadAndRegister();
+      const pursue = getTool(tools, 'lexware_pursue_credit_note');
+      await pursue.handler({
+        precedingSalesVoucherId: '58e512ce-ea13-11eb-bac8-2f511e28942a',
+        body: { foo: 'bar' },
+        finalize: false,
+      });
+      expect(mockLexwareRequest).toHaveBeenCalledExactlyOnceWith(
+        'POST',
+        '/credit-notes',
+        { foo: 'bar' },
+        { precedingSalesVoucherId: '58e512ce-ea13-11eb-bac8-2f511e28942a' },
+      );
+    });
+
+    it('declares precedingSalesVoucherId + body + finalize in its input schema (no version)', async () => {
+      const tools = await loadAndRegister();
+      const pursue = getTool(tools, 'lexware_pursue_credit_note');
+      expect(pursue.schemaShape).toHaveProperty('precedingSalesVoucherId');
+      expect(pursue.schemaShape).toHaveProperty('body');
+      expect(pursue.schemaShape).toHaveProperty('finalize');
+      expect(pursue.schemaShape).not.toHaveProperty('version');
     });
   });
 

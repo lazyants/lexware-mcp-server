@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
-import { UuidSchema, VersionParam } from '../schemas/common.js';
+import { UuidSchema } from '../schemas/common.js';
 
 export function registerCreditNoteTools(server: McpServer): void {
   server.registerTool('lexware_create_credit_note', {
@@ -61,20 +61,35 @@ export function registerCreditNoteTools(server: McpServer): void {
   }));
 
   server.registerTool('lexware_pursue_credit_note', {
-    title: 'Pursue Credit Note',
-    description: 'Transition a credit note from draft to open/pending status.',
+    title: 'Pursue to a Credit Note',
+    description:
+      'Create a new credit note as a follow-up to a preceding invoice. ' +
+      'Maps to the documented `POST /credit-notes?precedingSalesVoucherId={id}[&finalize=true]` endpoint. ' +
+      'Set finalize=true to immediately finalize the credit note; omit or false to create as draft.',
     inputSchema: z.object({
-      id: UuidSchema.describe('Credit note UUID'),
-      ...VersionParam,
+      precedingSalesVoucherId: UuidSchema.describe(
+        'UUID of the preceding invoice that this credit note is pursued from.'
+      ),
+      body: z.record(z.string(), z.unknown()).describe(
+        'Credit note JSON body. Same shape as lexware_create_credit_note. See Lexware API docs for full schema.'
+      ),
+      finalize: z.boolean().optional().describe(
+        'When true, creates the credit note in finalized status (immediately paid-off, reducing the invoice open amount). ' +
+        'When false or omitted, creates as draft. Maps to the documented ?finalize=true query parameter.'
+      ),
     }),
     annotations: {
       readOnlyHint: false,
-      destructiveHint: false,
+      // finalize=true immediately reduces the open amount of the preceding
+      // invoice — an irreversible financial side effect on a sibling resource.
+      destructiveHint: true,
       idempotentHint: false,
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    return lexwareRequest('POST', `/credit-notes/${params.id}/actions/pursue`, undefined, { version: params.version });
+    const query: Record<string, unknown> = { precedingSalesVoucherId: params.precedingSalesVoucherId };
+    if (params.finalize === true) query.finalize = true;
+    return lexwareRequest('POST', '/credit-notes', params.body, query);
   }));
 
   server.registerTool('lexware_deeplink_credit_note', {
