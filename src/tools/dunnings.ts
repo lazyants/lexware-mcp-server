@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
-import { UuidSchema, VersionParam } from '../schemas/common.js';
+import { UuidSchema } from '../schemas/common.js';
 
 export function registerDunningTools(server: McpServer): void {
   server.registerTool('lexware_create_dunning', {
@@ -24,11 +24,18 @@ export function registerDunningTools(server: McpServer): void {
   }));
 
   server.registerTool('lexware_pursue_dunning', {
-    title: 'Pursue Dunning',
-    description: 'Transition a dunning from draft to open/pending status.',
+    title: 'Pursue to a Dunning',
+    description:
+      'Create a new dunning as a follow-up to a preceding invoice. ' +
+      'Maps to the documented `POST /dunnings?precedingSalesVoucherId={id}` endpoint. ' +
+      'Dunnings are always created in draft mode and do not need to be finalized.',
     inputSchema: z.object({
-      id: UuidSchema.describe('Dunning UUID'),
-      ...VersionParam,
+      precedingSalesVoucherId: UuidSchema.describe(
+        'UUID of the preceding invoice that this dunning is pursued from. Required by the Lexware API.'
+      ),
+      body: z.record(z.string(), z.unknown()).describe(
+        'Dunning JSON body. Same shape as lexware_create_dunning. See Lexware API docs for full schema.'
+      ),
     }),
     annotations: {
       readOnlyHint: false,
@@ -37,7 +44,9 @@ export function registerDunningTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    return lexwareRequest('POST', `/dunnings/${params.id}/actions/pursue`, undefined, { version: params.version });
+    return lexwareRequest('POST', '/dunnings', params.body, {
+      precedingSalesVoucherId: params.precedingSalesVoucherId,
+    });
   }));
 
   server.registerTool('lexware_get_dunning', {

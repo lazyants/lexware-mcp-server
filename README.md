@@ -6,7 +6,7 @@ MCP server for the [Lexware Office API](https://developers.lexware.io/docs/). Ma
 
 > **Unofficial — community project.** Not affiliated with, endorsed by, or supported by Lexware GmbH or Haufe Group. "Lexware" and "Lexware Office" are trademarks of their respective owners; used here only to identify the API this client targets (nominative fair use).
 
-**65 tools** across 20 resource domains, with 6 entry points so you can pick the right server for your MCP client's tool limit.
+**64 tools** across 20 resource domains, with 6 entry points so you can pick the right server for your MCP client's tool limit.
 
 ## Installation
 
@@ -34,8 +34,8 @@ Get a token from the [Lexware Office API settings](https://app.lexware.de/addons
 
 | Command | Domains | Tools |
 |---|---|---|
-| `lexware-mcp-server` | All 20 domains | 66 |
-| `lexware-mcp-sales` | Invoices, Credit Notes, Quotations, Order Confirmations, Delivery Notes, Down Payment Invoices, Dunnings, Voucherlist | 35 |
+| `lexware-mcp-server` | All 20 domains | 64 |
+| `lexware-mcp-sales` | Invoices, Credit Notes, Quotations, Order Confirmations, Delivery Notes, Down Payment Invoices, Dunnings, Voucherlist | 33 |
 | `lexware-mcp-contacts` | Contacts, Articles | 10 |
 | `lexware-mcp-bookkeeping` | Vouchers, Voucherlist, Payments | 7 |
 | `lexware-mcp-reference` | Countries, Payment Conditions, Posting Categories, Profile, Print Layouts | 5 |
@@ -108,9 +108,9 @@ Add to `claude_desktop_config.json`:
 
 `lexware_create_credit_note`, `lexware_get_credit_note`, `lexware_download_credit_note_file`, `lexware_pursue_credit_note`, `lexware_deeplink_credit_note`
 
-### Quotations (5 tools) — sales
+### Quotations (4 tools) — sales
 
-`lexware_create_quotation`, `lexware_get_quotation`, `lexware_download_quotation_file`, `lexware_pursue_quotation`, `lexware_deeplink_quotation`
+`lexware_create_quotation`, `lexware_get_quotation`, `lexware_download_quotation_file`, `lexware_deeplink_quotation`
 
 ### Order Confirmations (5 tools) — sales
 

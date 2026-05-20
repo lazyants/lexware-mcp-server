@@ -94,17 +94,35 @@ describe('delivery-notes tool registry', () => {
   });
 
   describe('lexware_pursue_delivery_note', () => {
-    it('POSTs /delivery-notes/{id}/actions/pursue with version query param', async () => {
-      mockLexwareRequest.mockResolvedValue({ id: 'dn-1', version: 2 });
+    // Documented endpoint:
+    //   POST /v1/delivery-notes?precedingSalesVoucherId={id}
+    // The prior implementation hit an undocumented
+    // `POST /delivery-notes/{id}/actions/pursue` path that returns HTTP 404 on the live API.
+    it('POSTs /delivery-notes with precedingSalesVoucherId and body', async () => {
+      mockLexwareRequest.mockResolvedValue({ id: 'dn-1', version: 1 });
       const tools = await loadAndRegister();
       const pursue = getTool(tools, 'lexware_pursue_delivery_note');
-      await pursue.handler({ id: 'dn-1', version: 3 });
+      await pursue.handler({
+        precedingSalesVoucherId: '58e512ce-ea13-11eb-bac8-2f511e28942a',
+        body: { foo: 'bar' },
+      });
       expect(mockLexwareRequest).toHaveBeenCalledExactlyOnceWith(
         'POST',
-        '/delivery-notes/dn-1/actions/pursue',
-        undefined,
-        { version: 3 },
+        '/delivery-notes',
+        { foo: 'bar' },
+        { precedingSalesVoucherId: '58e512ce-ea13-11eb-bac8-2f511e28942a' },
       );
+    });
+
+    it('declares precedingSalesVoucherId + body in its input schema (no version, no finalize)', async () => {
+      const tools = await loadAndRegister();
+      const pursue = getTool(tools, 'lexware_pursue_delivery_note');
+      expect(pursue.schemaShape).toHaveProperty('precedingSalesVoucherId');
+      expect(pursue.schemaShape).toHaveProperty('body');
+      expect(pursue.schemaShape).not.toHaveProperty('version');
+      // The Lexware docs do not document `[&finalize=true]` on the delivery-notes
+      // pursue endpoint, so the tool does not expose it.
+      expect(pursue.schemaShape).not.toHaveProperty('finalize');
     });
   });
 

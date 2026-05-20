@@ -94,17 +94,36 @@ describe('dunnings tool registry', () => {
   });
 
   describe('lexware_pursue_dunning', () => {
-    it('POSTs /dunnings/{id}/actions/pursue with version query param', async () => {
-      mockLexwareRequest.mockResolvedValue({ id: 'd-1', version: 2 });
+    // Documented endpoint:
+    //   POST /v1/dunnings?precedingSalesVoucherId={id}
+    // Dunnings require an invoice reference (the precedingSalesVoucherId is
+    // a mandatory query parameter per the Lexware docs) and are always created
+    // in draft mode (no `finalize` parameter). The prior implementation hit an
+    // undocumented `POST /dunnings/{id}/actions/pursue` path that returns 404.
+    it('POSTs /dunnings with precedingSalesVoucherId and body', async () => {
+      mockLexwareRequest.mockResolvedValue({ id: 'd-1', version: 1 });
       const tools = await loadAndRegister();
       const pursue = getTool(tools, 'lexware_pursue_dunning');
-      await pursue.handler({ id: 'd-1', version: 4 });
+      await pursue.handler({
+        precedingSalesVoucherId: '58e512ce-ea13-11eb-bac8-2f511e28942a',
+        body: { foo: 'bar' },
+      });
       expect(mockLexwareRequest).toHaveBeenCalledExactlyOnceWith(
         'POST',
-        '/dunnings/d-1/actions/pursue',
-        undefined,
-        { version: 4 },
+        '/dunnings',
+        { foo: 'bar' },
+        { precedingSalesVoucherId: '58e512ce-ea13-11eb-bac8-2f511e28942a' },
       );
+    });
+
+    it('declares precedingSalesVoucherId + body in its input schema (no version, no finalize)', async () => {
+      const tools = await loadAndRegister();
+      const pursue = getTool(tools, 'lexware_pursue_dunning');
+      expect(pursue.schemaShape).toHaveProperty('precedingSalesVoucherId');
+      expect(pursue.schemaShape).toHaveProperty('body');
+      expect(pursue.schemaShape).not.toHaveProperty('version');
+      // Dunnings are always created in draft mode per the Lexware docs.
+      expect(pursue.schemaShape).not.toHaveProperty('finalize');
     });
   });
 

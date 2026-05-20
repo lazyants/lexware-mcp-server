@@ -94,17 +94,35 @@ describe('order-confirmations tool registry', () => {
   });
 
   describe('lexware_pursue_order_confirmation', () => {
-    it('POSTs /order-confirmations/{id}/actions/pursue with version query param', async () => {
-      mockLexwareRequest.mockResolvedValue({ id: 'oc-1', version: 2 });
+    // Documented endpoint:
+    //   POST /v1/order-confirmations?precedingSalesVoucherId={id}
+    // The prior implementation hit an undocumented
+    // `POST /order-confirmations/{id}/actions/pursue` path that returns HTTP 404 on the live API.
+    it('POSTs /order-confirmations with precedingSalesVoucherId and body', async () => {
+      mockLexwareRequest.mockResolvedValue({ id: 'oc-1', version: 1 });
       const tools = await loadAndRegister();
       const pursue = getTool(tools, 'lexware_pursue_order_confirmation');
-      await pursue.handler({ id: 'oc-1', version: 5 });
+      await pursue.handler({
+        precedingSalesVoucherId: '58e512ce-ea13-11eb-bac8-2f511e28942a',
+        body: { foo: 'bar' },
+      });
       expect(mockLexwareRequest).toHaveBeenCalledExactlyOnceWith(
         'POST',
-        '/order-confirmations/oc-1/actions/pursue',
-        undefined,
-        { version: 5 },
+        '/order-confirmations',
+        { foo: 'bar' },
+        { precedingSalesVoucherId: '58e512ce-ea13-11eb-bac8-2f511e28942a' },
       );
+    });
+
+    it('declares precedingSalesVoucherId + body in its input schema (no version, no finalize)', async () => {
+      const tools = await loadAndRegister();
+      const pursue = getTool(tools, 'lexware_pursue_order_confirmation');
+      expect(pursue.schemaShape).toHaveProperty('precedingSalesVoucherId');
+      expect(pursue.schemaShape).toHaveProperty('body');
+      expect(pursue.schemaShape).not.toHaveProperty('version');
+      // The Lexware docs do not document `[&finalize=true]` on the order-confirmations
+      // pursue endpoint, so the tool does not expose it.
+      expect(pursue.schemaShape).not.toHaveProperty('finalize');
     });
   });
 
