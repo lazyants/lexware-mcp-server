@@ -51,6 +51,11 @@
     "form-data": "^4.0.0",
     "zod": "^4.4.0"
   },
+  "overrides": {
+    "fast-uri": "^3.1.2",
+    "brace-expansion": "^5.0.6",
+    "hono": "^4.12.21"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^20.0.0",
