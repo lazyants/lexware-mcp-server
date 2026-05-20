@@ -142,24 +142,83 @@ describe('invoices tool registry', () => {
   });
 
   describe('lexware_pursue_invoice', () => {
-    it('POSTs to the existing /actions/pursue path with the version param', async () => {
-      mockLexwareRequest.mockResolvedValue({ id: 'p-1', version: 2 });
+    // Documented endpoint:
+    //   POST /v1/invoices?precedingSalesVoucherId={id}[&finalize=true]
+    // The pursue action is a CREATE on /invoices with a chaining query param.
+    // The prior implementation hit an undocumented
+    // `POST /invoices/{id}/actions/pursue` path that returns HTTP 404 on the live API.
+    it('POSTs to /invoices with precedingSalesVoucherId and body, no finalize when omitted', async () => {
+      mockLexwareRequest.mockResolvedValue({ id: 'p-1', version: 1 });
       const tools = await registerAndCapture();
       const pursue = getTool(tools, 'lexware_pursue_invoice');
 
-      await pursue.handler({ id: 'abc-uuid', version: 1 });
+      await pursue.handler({
+        precedingSalesVoucherId: '58e512ce-ea13-11eb-bac8-2f511e28942a',
+        body: { foo: 'bar' },
+      });
 
-      // NOTE: Live probe on 2026-05-20 found this path also returns 404 on
-      // api.lexware.io — same undocumented-action class of bug as the
-      // removed finalize tool. Out of scope for this PR (Wave 4a) but
-      // tracked as a follow-up. This test locks in the *current* behavior
-      // so the fix PR will produce a visible diff.
       expect(mockLexwareRequest).toHaveBeenCalledExactlyOnceWith(
         'POST',
-        '/invoices/abc-uuid/actions/pursue',
-        undefined,
-        { version: 1 },
+        '/invoices',
+        { foo: 'bar' },
+        { precedingSalesVoucherId: '58e512ce-ea13-11eb-bac8-2f511e28942a' },
       );
+    });
+
+    it('passes finalize=true through to the documented ?finalize query parameter', async () => {
+      mockLexwareRequest.mockResolvedValue({ id: 'p-2', version: 1 });
+      const tools = await registerAndCapture();
+      const pursue = getTool(tools, 'lexware_pursue_invoice');
+
+      await pursue.handler({
+        precedingSalesVoucherId: '58e512ce-ea13-11eb-bac8-2f511e28942a',
+        body: { foo: 'bar' },
+        finalize: true,
+      });
+
+      expect(mockLexwareRequest).toHaveBeenCalledExactlyOnceWith(
+        'POST',
+        '/invoices',
+        { foo: 'bar' },
+        {
+          precedingSalesVoucherId: '58e512ce-ea13-11eb-bac8-2f511e28942a',
+          finalize: true,
+        },
+      );
+    });
+
+    it('treats finalize=false as draft (no ?finalize on the wire)', async () => {
+      mockLexwareRequest.mockResolvedValue({ id: 'p-3', version: 1 });
+      const tools = await registerAndCapture();
+      const pursue = getTool(tools, 'lexware_pursue_invoice');
+
+      await pursue.handler({
+        precedingSalesVoucherId: '58e512ce-ea13-11eb-bac8-2f511e28942a',
+        body: { foo: 'bar' },
+        finalize: false,
+      });
+
+      // The docs only define `[&finalize=true]`. Some HTTP parsers treat any
+      // non-empty query value (including the literal "false") as truthy, so
+      // finalize=false must NOT reach the wire.
+      expect(mockLexwareRequest).toHaveBeenCalledExactlyOnceWith(
+        'POST',
+        '/invoices',
+        { foo: 'bar' },
+        { precedingSalesVoucherId: '58e512ce-ea13-11eb-bac8-2f511e28942a' },
+      );
+    });
+
+    it('declares precedingSalesVoucherId + body + finalize in its input schema', async () => {
+      const tools = await registerAndCapture();
+      const pursue = getTool(tools, 'lexware_pursue_invoice');
+      expect(pursue.schemaShape).toHaveProperty('precedingSalesVoucherId');
+      expect(pursue.schemaShape).toHaveProperty('body');
+      expect(pursue.schemaShape).toHaveProperty('finalize');
+      // The old broken contract used a `version` param for the imagined
+      // status-transition; the documented pursue is a create-with-chain, so
+      // version no longer applies.
+      expect(pursue.schemaShape).not.toHaveProperty('version');
     });
   });
 
