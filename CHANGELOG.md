@@ -8,7 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm package: [`@lazyants/lexware-mcp-server`](https://www.npmjs.com/package/@lazyants/lexware-mcp-server)
 - MCP Registry: [`io.github.lazyants/lexware`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.lazyants/lexware)
 
-## [Unreleased]
+## [3.0.0] — 2026-05-20
+
+### Added
+
+- Per-tool axios-mock test coverage for contacts, articles,
+  vouchers, payments, sales follow-up resources, platform
+  resources, and reference/misc resources (PRs #30, #31, #32,
+  #34, #35). Tests live under `src/tests/tools/<domain>.test.ts`
+  and exercise path/method/body/version shape against a mocked
+  axios client.
 
 ### Removed
 
