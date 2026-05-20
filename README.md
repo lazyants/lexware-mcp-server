@@ -6,7 +6,7 @@ MCP server for the [Lexware Office API](https://developers.lexware.io/docs/). Ma
 
 > **Unofficial — community project.** Not affiliated with, endorsed by, or supported by Lexware GmbH or Haufe Group. "Lexware" and "Lexware Office" are trademarks of their respective owners; used here only to identify the API this client targets (nominative fair use).
 
-**66 tools** across 20 resource domains, with 6 entry points so you can pick the right server for your MCP client's tool limit.
+**65 tools** across 20 resource domains, with 6 entry points so you can pick the right server for your MCP client's tool limit.
 
 ## Installation
 
@@ -100,9 +100,9 @@ Add to `claude_desktop_config.json`:
 
 ## Tools
 
-### Invoices (6 tools) — sales
+### Invoices (5 tools) — sales
 
-`lexware_create_invoice`, `lexware_get_invoice`, `lexware_download_invoice_file`, `lexware_finalize_invoice`, `lexware_pursue_invoice`, `lexware_deeplink_invoice`
+`lexware_create_invoice` (supports `finalize=true` at creation), `lexware_get_invoice`, `lexware_download_invoice_file`, `lexware_pursue_invoice`, `lexware_deeplink_invoice`
 
 ### Credit Notes (5 tools) — sales
 
