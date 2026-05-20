@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm package: [`@lazyants/lexware-mcp-server`](https://www.npmjs.com/package/@lazyants/lexware-mcp-server)
 - MCP Registry: [`io.github.lazyants/lexware`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.lazyants/lexware)
 
+## [Unreleased]
+
+### Removed
+
+- `lexware_finalize_invoice` tool. It called an undocumented
+  `POST /invoices/{id}/actions/finalize` endpoint that returns
+  HTTP 404 on the current Lexware Office API. Per the official
+  docs ("The status of an invoice cannot be changed via the
+  api"), no per-id finalize action exists. Total tool count
+  drops from 66 to 65.
+
+### Changed
+
+- `lexware_create_invoice` gains an optional `finalize` boolean
+  parameter. When true, the invoice is created in finalized
+  status ("open") via the documented
+  `POST /invoices?finalize=true` query parameter — this is the
+  only documented way to obtain a finalized invoice through the
+  API.
+
 ## [2.0.1] — 2026-05-06
 
 ### Security
