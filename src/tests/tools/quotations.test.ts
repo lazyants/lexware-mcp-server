@@ -97,14 +97,14 @@ describe('quotations tool registry', () => {
   });
 
   describe('lexware_deeplink_quotation', () => {
-    it('returns a /permalink/quotations/edit URL without hitting the API', async () => {
+    it('returns a .de /permalink/quotations/edit URL without hitting the API', async () => {
       const tools = await loadAndRegister();
       const deeplink = getTool(tools, 'lexware_deeplink_quotation');
       const result = (await deeplink.handler({ id: 'q-9' })) as {
         structuredContent: { deeplink: string };
       };
       expect(result.structuredContent.deeplink).toBe(
-        'https://app.lexware.io/permalink/quotations/edit/q-9',
+        'https://app.lexware.de/permalink/quotations/edit/q-9',
       );
       expect(mockLexwareRequest).not.toHaveBeenCalled();
     });

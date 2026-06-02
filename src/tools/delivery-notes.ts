@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
 import { UuidSchema } from '../schemas/common.js';
+import { LEXWARE_APP_BASE } from '../constants.js';
 
 export function registerDeliveryNoteTools(server: McpServer): void {
   server.registerTool('lexware_create_delivery_note', {
@@ -98,6 +99,6 @@ export function registerDeliveryNoteTools(server: McpServer): void {
       openWorldHint: false,
     },
   }, handleToolRequest(async (params) => {
-    return { deeplink: `https://app.lexware.io/permalink/delivery-notes/edit/${params.id}` };
+    return { deeplink: `${LEXWARE_APP_BASE}/permalink/delivery-notes/edit/${params.id}` };
   }));
 }

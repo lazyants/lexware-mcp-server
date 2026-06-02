@@ -88,7 +88,7 @@ describe('down-payment-invoices tool registry', () => {
         structuredContent: { deeplink: string };
       };
       expect(result.structuredContent.deeplink).toBe(
-        'https://app.lexware.io/permalink/down-payment-invoices/edit/dpi-9',
+        'https://app.lexware.de/permalink/down-payment-invoices/edit/dpi-9',
       );
       expect(mockLexwareRequest).not.toHaveBeenCalled();
     });

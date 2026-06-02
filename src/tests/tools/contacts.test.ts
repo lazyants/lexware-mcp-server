@@ -137,7 +137,7 @@ describe('contacts tool registry', () => {
       };
       // Per Lexware docs: contacts use `view/`, not `edit/`.
       expect(result.structuredContent.url).toBe(
-        'https://app.lexware.io/permalink/contacts/view/c-3',
+        'https://app.lexware.de/permalink/contacts/view/c-3',
       );
       expect(mockLexwareRequest).not.toHaveBeenCalled();
     });

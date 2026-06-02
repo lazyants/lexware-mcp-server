@@ -1,9 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import { LEXWARE_API_BASE, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MAX_RETRIES, REQUEST_TIMEOUT } from '../constants.js';
+import {
+  LEXWARE_API_BASE,
+  LEXWARE_APP_BASE,
+  DEFAULT_PAGE_SIZE,
+  MAX_PAGE_SIZE,
+  MAX_RETRIES,
+  REQUEST_TIMEOUT,
+} from '../constants.js';
 
 describe('constants', () => {
   it('has correct API base URL', () => {
     expect(LEXWARE_API_BASE).toBe('https://api.lexware.io/v1');
+  });
+
+  it('has correct web app base URL', () => {
+    expect(LEXWARE_APP_BASE).toBe('https://app.lexware.de');
   });
 
   it('has correct default page size', () => {

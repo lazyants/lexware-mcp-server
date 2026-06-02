@@ -134,7 +134,7 @@ describe('delivery-notes tool registry', () => {
         structuredContent: { deeplink: string };
       };
       expect(result.structuredContent.deeplink).toBe(
-        'https://app.lexware.io/permalink/delivery-notes/edit/dn-7',
+        'https://app.lexware.de/permalink/delivery-notes/edit/dn-7',
       );
       expect(mockLexwareRequest).not.toHaveBeenCalled();
     });

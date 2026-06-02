@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm package: [`@lazyants/lexware-mcp-server`](https://www.npmjs.com/package/@lazyants/lexware-mcp-server)
 - MCP Registry: [`io.github.lazyants/lexware`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.lazyants/lexware)
 
+## Unreleased
+
+### Fixed
+
+- Deeplink/permalink tools now use the Lexware Office web app domain
+  `https://app.lexware.de` instead of the API-root-style `.io` domain.
+  This fixes generated links for contacts, invoices, quotations, credit
+  notes, delivery notes, order confirmations, down payment invoices, and
+  dunnings.
+
 ## [3.0.0] — 2026-05-20
 
 ### Added
@@ -123,7 +133,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `lexware_deeplink_contact` now produces
-  `https://app.lexware.io/permalink/contacts/view/<id>` (Lexware docs
+  `https://app.lexware.de/permalink/contacts/view/<id>` (Lexware docs
   document `view/` for contacts; `edit/` was a dangling permalink).
 
 ### Changed

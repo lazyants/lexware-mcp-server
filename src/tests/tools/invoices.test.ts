@@ -232,7 +232,7 @@ describe('invoices tool registry', () => {
       expect(mockLexwareRequest).not.toHaveBeenCalled();
       expect(result).toMatchObject({
         structuredContent: {
-          deeplink: 'https://app.lexware.io/permalink/invoices/edit/abc-uuid',
+          deeplink: 'https://app.lexware.de/permalink/invoices/edit/abc-uuid',
         },
       });
     });

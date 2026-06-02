@@ -135,7 +135,7 @@ describe('dunnings tool registry', () => {
         structuredContent: { deeplink: string };
       };
       expect(result.structuredContent.deeplink).toBe(
-        'https://app.lexware.io/permalink/dunnings/edit/d-9',
+        'https://app.lexware.de/permalink/dunnings/edit/d-9',
       );
       expect(mockLexwareRequest).not.toHaveBeenCalled();
     });
