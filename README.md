@@ -31,16 +31,28 @@ The API token is resolved in this order:
 
 Get your token from the [Lexware Office API settings](https://app.lexware.de/addons/public-api), then store it with the native credential manager for your OS.
 
+> [!IMPORTANT]
+> The commands below read the token from an interactive prompt rather than
+> taking it as an argument, so it never lands in your shell history or the
+> process list. Avoid pasting the token directly onto the command line.
+
 #### macOS
 
+Omitting the value after `-w` makes `security` prompt for the token (with confirmation):
+
 ```bash
-security add-generic-password -s "lexware-mcp" -a "api-token" -w "YOUR_TOKEN_HERE"
+security add-generic-password -s "lexware-mcp" -a "api-token" -w
 ```
 
 #### Windows (PowerShell)
 
+`cmdkey` cannot prompt, so read the token into a variable via a hidden prompt and clear it afterwards:
+
 ```powershell
-cmdkey /generic:lexware-mcp /user:api-token /pass:YOUR_TOKEN_HERE
+$secure = Read-Host -AsSecureString "Lexware API token"
+$token = [System.Net.NetworkCredential]::new('', $secure).Password
+cmdkey /generic:lexware-mcp /user:api-token /pass:$token
+Remove-Variable secure, token
 ```
 
 #### Linux
