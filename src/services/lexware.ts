@@ -108,8 +108,16 @@ export function parseRetryAfterMs(
 let tokenPromise: Promise<string> | null = null;
 
 function getToken(): Promise<string> {
-  if (!tokenPromise) tokenPromise = resolveToken();
-  return tokenPromise;
+  if (tokenPromise) return tokenPromise;
+  // Single-flight: cache the in-flight Promise so concurrent callers share one
+  // lookup, but clear it on rejection so a transient keyring failure or a
+  // not-yet-set token can be retried without restarting the process.
+  const pending = resolveToken().catch((err) => {
+    if (tokenPromise === pending) tokenPromise = null;
+    throw err;
+  });
+  tokenPromise = pending;
+  return pending;
 }
 
 async function createClient(): Promise<AxiosInstance> {
@@ -156,8 +164,15 @@ async function createClient(): Promise<AxiosInstance> {
 let clientPromise: Promise<AxiosInstance> | null = null;
 
 function getClient(): Promise<AxiosInstance> {
-  if (!clientPromise) clientPromise = createClient();
-  return clientPromise;
+  if (clientPromise) return clientPromise;
+  // Single-flight, cleared on rejection — see getToken(). createClient() awaits
+  // getToken(), so a token failure rejects (and clears) this promise too.
+  const pending = createClient().catch((err) => {
+    if (clientPromise === pending) clientPromise = null;
+    throw err;
+  });
+  clientPromise = pending;
+  return pending;
 }
 
 function stripUndefined(obj: Record<string, unknown>): Record<string, unknown> {
