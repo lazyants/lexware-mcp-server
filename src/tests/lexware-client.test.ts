@@ -84,6 +84,23 @@ describe('lexware client', () => {
     expect(message).not.toContain('lexware.io');
   });
 
+  it('recovers after a fixable token miss without restarting (no cached rejection)', async () => {
+    delete process.env.LEXWARE_API_TOKEN;
+    const { lexwareRequest } = await import('../services/lexware.js');
+    // First call: token missing everywhere → rejects.
+    await expect(lexwareRequest('GET', '/profile')).rejects.toThrow('LEXWARE_API_TOKEN');
+    // User stores the token after the first failure; a later call must succeed
+    // rather than replay the cached rejection.
+    process.env.LEXWARE_API_TOKEN = 'recovered-token';
+    mockRequest.mockResolvedValue({ data: { ok: true } });
+    await expect(lexwareRequest('GET', '/profile')).resolves.toEqual({ ok: true });
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer recovered-token' }),
+      })
+    );
+  });
+
   it('uses keyring token when available, ignoring env var', async () => {
     mockGetPassword.mockReturnValue('keyring-token');
     mockRequest.mockResolvedValue({ data: { ok: true } });
