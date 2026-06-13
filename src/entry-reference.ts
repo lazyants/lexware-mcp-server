@@ -5,8 +5,10 @@ import { registerPaymentConditionTools } from './tools/payment-conditions.js';
 import { registerPostingCategoryTools } from './tools/posting-categories.js';
 import { registerProfileTools } from './tools/profile.js';
 import { registerPrintLayoutTools } from './tools/print-layouts.js';
+import { registerReferenceResource } from './resources/lexware-reference.js';
 
 const server = createServer('lexware-mcp-reference');
+registerReferenceResource(server);
 registerCountryTools(server);
 registerPaymentConditionTools(server);
 registerPostingCategoryTools(server);

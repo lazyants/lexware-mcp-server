@@ -20,8 +20,11 @@ import { registerEventSubscriptionTools } from './tools/event-subscriptions.js';
 import { registerFileTools } from './tools/files.js';
 import { registerRecurringTemplateTools } from './tools/recurring-templates.js';
 import { registerPrintLayoutTools } from './tools/print-layouts.js';
+import { registerReferenceResource } from './resources/lexware-reference.js';
 
 const server = createServer('lexware-mcp-server');
+
+registerReferenceResource(server);
 
 // Sales
 registerInvoiceTools(server);
