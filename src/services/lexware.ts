@@ -17,20 +17,20 @@ const TOKEN_PAGE_URL = `${LEXWARE_APP_BASE}/addons/public-api`;
 export function resolveApiToken({
   keyringValue,
   envValue,
-  service,
 }: {
   keyringValue?: string | null;
   envValue?: string | null;
-  service: string;
 }): string {
   if (keyringValue) return keyringValue;
   if (envValue) return envValue;
+  // Never interpolate the runtime LEXWARE_KEYRING_SERVICE value into this
+  // message: a user who mis-set it to their token would otherwise see the secret
+  // echoed back. Name the env var and show only the default service constant.
   throw new Error(
     [
       'No Lexware API token found. Provide it via one of:',
-      `  • OS keyring: service "${service}", account "${KEYRING_ACCOUNT}"`,
+      `  • OS keyring: service "${KEYRING_SERVICE_DEFAULT}" (override with LEXWARE_KEYRING_SERVICE), account "${KEYRING_ACCOUNT}"`,
       '  • Environment variable: LEXWARE_API_TOKEN',
-      '  • To use a non-default keyring service: set LEXWARE_KEYRING_SERVICE',
       `Generate a token at ${TOKEN_PAGE_URL}`,
     ].join('\n')
   );
@@ -50,7 +50,6 @@ async function resolveToken(): Promise<string> {
   return resolveApiToken({
     keyringValue,
     envValue: process.env.LEXWARE_API_TOKEN,
-    service,
   });
 }
 
@@ -222,31 +221,52 @@ function stripUndefined(obj: Record<string, unknown>): Record<string, unknown> {
 }
 
 /**
- * Strip the bearer token from a failed request's config before the AxiosError is
- * surfaced as an Error `cause`. The token lives in `config.headers.Authorization`,
- * so a caller that logs the whole error object (e.g. `console.error(err)`,
- * `JSON.stringify(err)`, a structured logger) would otherwise leak it even though
- * the Error message itself is clean. Runs only in the terminal catch (after all
- * retries), so mutating the spent config is safe.
+ * Strip every copy of the bearer token from a failed AxiosError before it is
+ * surfaced as an Error `cause`. The token reaches an error along several paths,
+ * so scrubbing only `config.headers` (as an earlier version did) is not enough:
+ *
+ *   1. `config.headers.Authorization` — the request header object, present on
+ *      BOTH `err.config` and `err.response.config` (axios may share or copy it).
+ *   2. `err.request._header` / `err.response.request._header` — Node's
+ *      ClientRequest keeps the raw "Authorization: Bearer <token>\r\n" header
+ *      block, which `util.inspect()` / `JSON` walks / a structured logger print.
+ *
+ * We scrub the header objects and drop the ClientRequest references entirely, so
+ * logging the whole error (`console.error(err)`, `util.inspect(err)`, a
+ * structured logger) can no longer leak the token. Runs only in the terminal
+ * throw path (after retries), so mutating the spent error is safe.
  */
-function redactAuthHeader(err: AxiosError): void {
-  const headers = err.config?.headers as
-    | (Record<string, unknown> & { delete?: (name: string) => void })
-    | undefined;
-  if (headers) {
+function sanitizeAxiosError(err: AxiosError): void {
+  const scrubHeaders = (config: { headers?: unknown } | undefined): void => {
+    const headers = config?.headers as
+      | (Record<string, unknown> & { delete?: (name: string) => void })
+      | undefined;
+    if (!headers) return;
     headers.delete?.('Authorization'); // AxiosHeaders instances
     delete headers.Authorization; // plain-object headers
     delete headers.authorization;
+  };
+  scrubHeaders(err.config);
+  scrubHeaders(err.response?.config);
+  // Drop the Node ClientRequest objects: their `_header` field holds the raw
+  // "Authorization: Bearer <token>" block that header scrubbing above misses.
+  delete (err as { request?: unknown }).request;
+  if (err.response) {
+    delete (err.response as { request?: unknown }).request;
   }
 }
 
-function formatError(err: AxiosError): Error {
-  // Strip the bearer token in place first, so every Error below can carry the
-  // original caught AxiosError as `cause` without leaking it when logged.
-  redactAuthHeader(err);
+/**
+ * Single sanitized throw path for every failed Lexware request. Scrubs the token
+ * from the AxiosError first, then throws a clean Error that carries the spent
+ * error as `cause` (so `preserve-caught-error` is satisfied and the original
+ * stack is retained without leaking the bearer token). Returns `never`.
+ */
+function throwFormatted(err: AxiosError): never {
+  sanitizeAxiosError(err);
 
   if (!err.response) {
-    return new Error(`Network error: ${err.message}`, { cause: err });
+    throw new Error(`Network error: ${err.message}`, { cause: err });
   }
 
   const body = err.response.data;
@@ -257,16 +277,16 @@ function formatError(err: AxiosError): Error {
     const issues = legacy.IssueList.map(
       (i) => `[${i.type}] ${i.source}: ${i.i18nKey}`
     ).join('; ');
-    return new Error(`Lexware API validation error: ${issues}`, { cause: err });
+    throw new Error(`Lexware API validation error: ${issues}`, { cause: err });
   }
 
   // Standard error format
   const standard = body as LexwareStandardError | undefined;
   if (standard?.message) {
-    return new Error(`Lexware API [${standard.status}]: ${standard.message}`, { cause: err });
+    throw new Error(`Lexware API [${standard.status}]: ${standard.message}`, { cause: err });
   }
 
-  return new Error(`Lexware API error: ${err.response.status} ${err.response.statusText}`, { cause: err });
+  throw new Error(`Lexware API error: ${err.response.status} ${err.response.statusText}`, { cause: err });
 }
 
 // Headers that must never survive on an AxiosError we chain as `{ cause: err }`.

@@ -176,6 +176,90 @@ describe('lexware client', () => {
     expect(inspect(caught, { depth: null })).not.toContain('test-token');
   });
 
+  it('drops the Node ClientRequest so the token cannot leak via request._header when the error is logged', async () => {
+    // Node's ClientRequest keeps the raw header block verbatim, including the
+    // bearer token, on err.request._header and err.response.request._header.
+    // Scrubbing config.headers alone misses it; a structured logger walking the
+    // whole error (util.inspect/JSON) would otherwise surface the token.
+    const rawHeaderBlock =
+      'GET /profile HTTP/1.1\r\nAuthorization: Bearer test-token\r\nAccept: application/json\r\n\r\n';
+    mockRequest.mockImplementation(() => {
+      const err = new AxiosError('boom');
+      const config = {
+        headers: { Authorization: 'Bearer test-token', authorization: 'Bearer test-token' },
+      } as never;
+      const request = { _header: rawHeaderBlock } as never;
+      err.config = config;
+      err.request = request;
+      err.response = {
+        status: 500,
+        statusText: 'Server Error',
+        data: {},
+        headers: {},
+        config,
+        request,
+      } as never;
+      return Promise.reject(err);
+    });
+    const { lexwareRequest } = await import('../services/lexware.js');
+    const caught = await lexwareRequest('GET', '/profile').then(
+      () => null,
+      (e: unknown) => e as Error & { cause?: AxiosError },
+    );
+    expect(caught).toBeInstanceOf(Error);
+    const { inspect } = await import('node:util');
+    // No vector may surface the token: config.headers, err.request._header, or
+    // err.response.request._header.
+    expect(inspect(caught, { depth: null })).not.toContain('test-token');
+    // The ClientRequest references are gone entirely.
+    expect(caught?.cause?.request).toBeUndefined();
+    expect(caught?.cause?.response?.request).toBeUndefined();
+  });
+
+  it('sanitizes upload errors so the bearer token never leaks when logged', async () => {
+    const rawHeaderBlock =
+      'POST /files HTTP/1.1\r\nAuthorization: Bearer test-token\r\n\r\n';
+    mockRequest.mockImplementation(() => {
+      const err = new AxiosError('upload boom');
+      const config = { headers: { Authorization: 'Bearer test-token' } } as never;
+      const request = { _header: rawHeaderBlock } as never;
+      err.config = config;
+      err.request = request;
+      err.response = { status: 500, statusText: 'Server Error', data: {}, headers: {}, config, request } as never;
+      return Promise.reject(err);
+    });
+    const { lexwareUpload } = await import('../services/lexware.js');
+    const caught = await lexwareUpload('/files', Buffer.from('x'), 'x.pdf', 'application/pdf').then(
+      () => null,
+      (e: unknown) => e as Error,
+    );
+    expect(caught).toBeInstanceOf(Error);
+    const { inspect } = await import('node:util');
+    expect(inspect(caught, { depth: null })).not.toContain('test-token');
+  });
+
+  it('sanitizes download errors so the bearer token never leaks when logged', async () => {
+    const rawHeaderBlock =
+      'GET /files/abc HTTP/1.1\r\nAuthorization: Bearer test-token\r\n\r\n';
+    mockRequest.mockImplementation(() => {
+      const err = new AxiosError('download boom');
+      const config = { headers: { Authorization: 'Bearer test-token' } } as never;
+      const request = { _header: rawHeaderBlock } as never;
+      err.config = config;
+      err.request = request;
+      err.response = { status: 500, statusText: 'Server Error', data: {}, headers: {}, config, request } as never;
+      return Promise.reject(err);
+    });
+    const { lexwareDownload } = await import('../services/lexware.js');
+    const caught = await lexwareDownload('/files/abc').then(
+      () => null,
+      (e: unknown) => e as Error,
+    );
+    expect(caught).toBeInstanceOf(Error);
+    const { inspect } = await import('node:util');
+    expect(inspect(caught, { depth: null })).not.toContain('test-token');
+  });
+
   it('creates client with correct base URL and auth header', async () => {
     mockRequest.mockResolvedValue({ data: { ok: true } });
     const { lexwareRequest } = await import('../services/lexware.js');
