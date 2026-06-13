@@ -8,7 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm package: [`@lazyants/lexware-mcp-server`](https://www.npmjs.com/package/@lazyants/lexware-mcp-server)
 - MCP Registry: [`io.github.lazyants/lexware`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.lazyants/lexware)
 
-## Unreleased
+## [3.0.1] — 2026-06-13
+
+### Changed
+
+- Bumped the `minor-and-patch` dependency group in the lockfile
+  (6 updates) via Dependabot (#43).
 
 ### Fixed
 
@@ -16,7 +21,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `https://app.lexware.de` instead of the API-root-style `.io` domain.
   This fixes generated links for contacts, invoices, quotations, credit
   notes, delivery notes, order confirmations, down payment invoices, and
-  dunnings.
+  dunnings (#39).
+
+### Security
+
+- Pinned the `qs` override to `^6.15.2` to clear the npm-audit
+  denial-of-service advisory
+  ([GHSA-q8mj-m7cp-5q26](https://github.com/advisories/GHSA-q8mj-m7cp-5q26))
+  pulled in transitively via `qs` (#42). `npm audit --omit=dev` reports
+  0 vulnerabilities again.
 
 ## [3.0.0] — 2026-05-20
 
@@ -200,6 +213,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[3.0.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.0.1
+[3.0.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.0.0
 [2.0.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v2.0.0
 [1.1.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v1.1.0
 [1.0.2]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v1.0.2
