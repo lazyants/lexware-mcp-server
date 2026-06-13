@@ -196,9 +196,29 @@ function stripUndefined(obj: Record<string, unknown>): Record<string, unknown> {
   return result;
 }
 
+/**
+ * Strip the bearer token from a failed request's config before the AxiosError is
+ * surfaced as an Error `cause`. The token lives in `config.headers.Authorization`,
+ * so a caller that logs the whole error object (e.g. `console.error(err)`,
+ * `JSON.stringify(err)`, a structured logger) would otherwise leak it even though
+ * the Error message itself is clean. Runs only in the terminal catch (after all
+ * retries), so mutating the spent config is safe.
+ */
+function redactAuthHeader(err: AxiosError): AxiosError {
+  const headers = err.config?.headers as
+    | (Record<string, unknown> & { delete?: (name: string) => void })
+    | undefined;
+  if (headers) {
+    headers.delete?.('Authorization'); // AxiosHeaders instances
+    delete headers.Authorization; // plain-object headers
+    delete headers.authorization;
+  }
+  return err;
+}
+
 function formatError(err: AxiosError): Error {
   if (!err.response) {
-    return new Error(`Network error: ${err.message}`, { cause: err });
+    return new Error(`Network error: ${err.message}`, { cause: redactAuthHeader(err) });
   }
 
   const body = err.response.data;
@@ -209,16 +229,16 @@ function formatError(err: AxiosError): Error {
     const issues = legacy.IssueList.map(
       (i) => `[${i.type}] ${i.source}: ${i.i18nKey}`
     ).join('; ');
-    return new Error(`Lexware API validation error: ${issues}`, { cause: err });
+    return new Error(`Lexware API validation error: ${issues}`, { cause: redactAuthHeader(err) });
   }
 
   // Standard error format
   const standard = body as LexwareStandardError | undefined;
   if (standard?.message) {
-    return new Error(`Lexware API [${standard.status}]: ${standard.message}`, { cause: err });
+    return new Error(`Lexware API [${standard.status}]: ${standard.message}`, { cause: redactAuthHeader(err) });
   }
 
-  return new Error(`Lexware API error: ${err.response.status} ${err.response.statusText}`, { cause: err });
+  return new Error(`Lexware API error: ${err.response.status} ${err.response.statusText}`, { cause: redactAuthHeader(err) });
 }
 
 // Headers that must never survive on an AxiosError we chain as `{ cause: err }`.

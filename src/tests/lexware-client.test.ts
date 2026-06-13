@@ -73,17 +73,6 @@ describe('lexware client', () => {
     await expect(lexwareRequest('GET', '/profile')).rejects.toThrow('LEXWARE_API_TOKEN');
   });
 
-  it('missing-token error links to the lexware.de token page, never lexware.io', async () => {
-    delete process.env.LEXWARE_API_TOKEN;
-    const { lexwareRequest } = await import('../services/lexware.js');
-    const message = await lexwareRequest('GET', '/profile').then(
-      () => '',
-      (err: unknown) => (err as Error).message,
-    );
-    expect(message).toContain('https://app.lexware.de/addons/public-api');
-    expect(message).not.toContain('lexware.io');
-  });
-
   it('recovers after a fixable token miss without restarting (no cached rejection)', async () => {
     delete process.env.LEXWARE_API_TOKEN;
     const { lexwareRequest } = await import('../services/lexware.js');
@@ -121,6 +110,36 @@ describe('lexware client', () => {
     const { lexwareRequest } = await import('../services/lexware.js');
     await lexwareRequest('GET', '/profile');
     expect(Entry).toHaveBeenCalledWith('my-company', 'api-token');
+  });
+
+  it('falls back to LEXWARE_API_TOKEN when the keyring module throws (headless)', async () => {
+    const { Entry } = await import('@napi-rs/keyring');
+    (Entry as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+      throw new Error('keyring unavailable: no libsecret');
+    });
+    process.env.LEXWARE_API_TOKEN = 'env-fallback-token';
+    mockRequest.mockResolvedValue({ data: { ok: true } });
+    const { lexwareRequest } = await import('../services/lexware.js');
+    await lexwareRequest('GET', '/profile');
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer env-fallback-token' }),
+      })
+    );
+  });
+
+  it('missing-token error links to the lexware.de token page, never lexware.io, and leaks no secret', async () => {
+    delete process.env.LEXWARE_API_TOKEN;
+    const { lexwareRequest } = await import('../services/lexware.js');
+    const message = await lexwareRequest('GET', '/profile').then(
+      () => '',
+      (err: unknown) => (err as Error).message,
+    );
+    expect(message).toContain('https://app.lexware.de/addons/public-api');
+    expect(message).not.toContain('lexware.io');
+    // The env token is deleted above and the message never echoes envValue
+    // regardless — assert defensively that no token-shaped value leaks.
+    expect(message).not.toContain('test-token');
   });
 
   it('creates client with correct base URL and auth header', async () => {
