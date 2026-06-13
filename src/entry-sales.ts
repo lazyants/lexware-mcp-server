@@ -8,8 +8,10 @@ import { registerDeliveryNoteTools } from './tools/delivery-notes.js';
 import { registerDownPaymentInvoiceTools } from './tools/down-payment-invoices.js';
 import { registerDunningTools } from './tools/dunnings.js';
 import { registerVoucherlistTools } from './tools/voucherlist.js';
+import { registerReferenceResource } from './resources/lexware-reference.js';
 
 const server = createServer('lexware-mcp-sales');
+registerReferenceResource(server);
 registerInvoiceTools(server);
 registerCreditNoteTools(server);
 registerQuotationTools(server);

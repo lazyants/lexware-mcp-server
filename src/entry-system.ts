@@ -3,8 +3,10 @@ import { createServer, startServer } from './server.js';
 import { registerEventSubscriptionTools } from './tools/event-subscriptions.js';
 import { registerFileTools } from './tools/files.js';
 import { registerRecurringTemplateTools } from './tools/recurring-templates.js';
+import { registerReferenceResource } from './resources/lexware-reference.js';
 
 const server = createServer('lexware-mcp-system');
+registerReferenceResource(server);
 registerEventSubscriptionTools(server);
 registerFileTools(server);
 registerRecurringTemplateTools(server);
