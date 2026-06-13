@@ -142,6 +142,40 @@ describe('lexware client', () => {
     expect(message).not.toContain('test-token');
   });
 
+  it('redacts the Authorization header from a failed request error cause (no token leak when the error is logged)', async () => {
+    mockRequest.mockImplementation(() => {
+      const err = new AxiosError('boom');
+      // Real axios shares one config object between err.config and err.response.config.
+      const config = {
+        headers: { Authorization: 'Bearer test-token', authorization: 'Bearer test-token' },
+      } as never;
+      err.config = config;
+      err.response = {
+        status: 500,
+        statusText: 'Server Error',
+        data: {},
+        headers: {},
+        config,
+      } as never;
+      return Promise.reject(err);
+    });
+    const { lexwareRequest } = await import('../services/lexware.js');
+    const caught = await lexwareRequest('GET', '/profile').then(
+      () => null,
+      (e: unknown) => e as Error & { cause?: unknown },
+    );
+    expect(caught).toBeInstanceOf(Error);
+    const causeHeaders = (caught?.cause as AxiosError | undefined)?.config?.headers as
+      | Record<string, unknown>
+      | undefined;
+    expect(causeHeaders?.Authorization).toBeUndefined();
+    expect(causeHeaders?.authorization).toBeUndefined();
+    // The real leak vector: a logger walking the whole error object (util.inspect /
+    // JSON.stringify / a structured logger) must not surface the bearer token.
+    const { inspect } = await import('node:util');
+    expect(inspect(caught, { depth: null })).not.toContain('test-token');
+  });
+
   it('creates client with correct base URL and auth header', async () => {
     mockRequest.mockResolvedValue({ data: { ok: true } });
     const { lexwareRequest } = await import('../services/lexware.js');

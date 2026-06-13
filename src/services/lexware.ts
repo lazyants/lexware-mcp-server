@@ -1,32 +1,57 @@
 import axios, { AxiosInstance, AxiosError, Method } from 'axios';
 import { get as httpsGet } from 'node:https';
 import { createPublicKey } from 'node:crypto';
-import { LEXWARE_API_BASE, MAX_RETRIES, REQUEST_TIMEOUT } from '../constants.js';
+import { LEXWARE_API_BASE, LEXWARE_APP_BASE, MAX_RETRIES, REQUEST_TIMEOUT } from '../constants.js';
 import { LexwareLegacyError, LexwareStandardError } from '../types/common.js';
 
 const KEYRING_SERVICE_DEFAULT = 'lexware-mcp';
 const KEYRING_ACCOUNT = 'api-token';
+const TOKEN_PAGE_URL = `${LEXWARE_APP_BASE}/addons/public-api`;
+
+/**
+ * Pure token-source selection: prefer the keyring value, then the env value.
+ * Throws a clear, secret-free error when neither is present. Kept pure (no IO)
+ * so every branch is unit-testable; the impure keyring/env reads live in
+ * resolveToken().
+ */
+export function resolveApiToken({
+  keyringValue,
+  envValue,
+  service,
+}: {
+  keyringValue?: string | null;
+  envValue?: string | null;
+  service: string;
+}): string {
+  if (keyringValue) return keyringValue;
+  if (envValue) return envValue;
+  throw new Error(
+    [
+      'No Lexware API token found. Provide it via one of:',
+      `  • OS keyring: service "${service}", account "${KEYRING_ACCOUNT}"`,
+      '  • Environment variable: LEXWARE_API_TOKEN',
+      '  • To use a non-default keyring service: set LEXWARE_KEYRING_SERVICE',
+      `Generate a token at ${TOKEN_PAGE_URL}`,
+    ].join('\n')
+  );
+}
 
 async function resolveToken(): Promise<string> {
   const service = process.env.LEXWARE_KEYRING_SERVICE ?? KEYRING_SERVICE_DEFAULT;
 
+  let keyringValue: string | null = null;
   try {
     const { Entry } = await import('@napi-rs/keyring');
-    const token = new Entry(service, KEYRING_ACCOUNT).getPassword();
-    if (token) return token;
+    keyringValue = new Entry(service, KEYRING_ACCOUNT).getPassword();
   } catch {
-    // keyring unavailable (e.g. headless Linux without libsecret) — fall through
+    // keyring unavailable (e.g. headless Linux without libsecret) — fall back to env
   }
 
-  const envToken = process.env.LEXWARE_API_TOKEN;
-  if (envToken) return envToken;
-
-  throw new Error(
-    `No Lexware API token found. Provide it via one of:\n` +
-    `  • OS keyring: service "${service}", account "${KEYRING_ACCOUNT}"\n` +
-    `  • Environment variable: LEXWARE_API_TOKEN\n` +
-    `  • To use a non-default keyring service: set LEXWARE_KEYRING_SERVICE`
-  );
+  return resolveApiToken({
+    keyringValue,
+    envValue: process.env.LEXWARE_API_TOKEN,
+    service,
+  });
 }
 
 let tokenPromise: Promise<string> | null = null;
@@ -204,7 +229,7 @@ function stripUndefined(obj: Record<string, unknown>): Record<string, unknown> {
  * the Error message itself is clean. Runs only in the terminal catch (after all
  * retries), so mutating the spent config is safe.
  */
-function redactAuthHeader(err: AxiosError): AxiosError {
+function redactAuthHeader(err: AxiosError): void {
   const headers = err.config?.headers as
     | (Record<string, unknown> & { delete?: (name: string) => void })
     | undefined;
@@ -213,12 +238,15 @@ function redactAuthHeader(err: AxiosError): AxiosError {
     delete headers.Authorization; // plain-object headers
     delete headers.authorization;
   }
-  return err;
 }
 
 function formatError(err: AxiosError): Error {
+  // Strip the bearer token in place first, so every Error below can carry the
+  // original caught AxiosError as `cause` without leaking it when logged.
+  redactAuthHeader(err);
+
   if (!err.response) {
-    return new Error(`Network error: ${err.message}`, { cause: redactAuthHeader(err) });
+    return new Error(`Network error: ${err.message}`, { cause: err });
   }
 
   const body = err.response.data;
@@ -229,16 +257,16 @@ function formatError(err: AxiosError): Error {
     const issues = legacy.IssueList.map(
       (i) => `[${i.type}] ${i.source}: ${i.i18nKey}`
     ).join('; ');
-    return new Error(`Lexware API validation error: ${issues}`, { cause: redactAuthHeader(err) });
+    return new Error(`Lexware API validation error: ${issues}`, { cause: err });
   }
 
   // Standard error format
   const standard = body as LexwareStandardError | undefined;
   if (standard?.message) {
-    return new Error(`Lexware API [${standard.status}]: ${standard.message}`, { cause: redactAuthHeader(err) });
+    return new Error(`Lexware API [${standard.status}]: ${standard.message}`, { cause: err });
   }
 
-  return new Error(`Lexware API error: ${err.response.status} ${err.response.statusText}`, { cause: redactAuthHeader(err) });
+  return new Error(`Lexware API error: ${err.response.status} ${err.response.statusText}`, { cause: err });
 }
 
 // Headers that must never survive on an AxiosError we chain as `{ cause: err }`.
