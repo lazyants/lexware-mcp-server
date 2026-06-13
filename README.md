@@ -46,14 +46,56 @@ security add-generic-password -s "lexware-mcp" -a "api-token" -w
 
 #### Windows (PowerShell)
 
-`cmdkey` cannot prompt, so read the token into a variable via a hidden prompt and clear it afterwards:
+`cmdkey` can only take the token as a command-line argument, which exposes it in
+the process list. Instead, read it from a hidden prompt and write it straight
+into Windows Credential Manager via `CredWrite`, so the token never reaches argv.
+The credential's target name is `<account>.<service>` — `api-token.lexware-mcp`
+for the default service — which is exactly what the server reads back:
 
 ```powershell
 $secure = Read-Host -AsSecureString "Lexware API token"
-$token = [System.Net.NetworkCredential]::new('', $secure).Password
-cmdkey /generic:lexware-mcp /user:api-token /pass:$token
-Remove-Variable secure, token
+Add-Type -Namespace LexwareKeyring -Name Native -MemberDefinition @'
+[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+public struct CREDENTIAL {
+    public uint Flags;
+    public uint Type;
+    [MarshalAs(UnmanagedType.LPWStr)] public string TargetName;
+    [MarshalAs(UnmanagedType.LPWStr)] public string Comment;
+    public System.Runtime.InteropServices.ComTypes.FILETIME LastWritten;
+    public uint CredentialBlobSize;
+    public IntPtr CredentialBlob;
+    public uint Persist;
+    public uint AttributeCount;
+    public IntPtr Attributes;
+    [MarshalAs(UnmanagedType.LPWStr)] public string TargetAlias;
+    [MarshalAs(UnmanagedType.LPWStr)] public string UserName;
+}
+[DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+public static extern bool CredWriteW(ref CREDENTIAL credential, uint flags);
+'@
+$blob = [Runtime.InteropServices.Marshal]::SecureStringToCoTaskMemUnicode($secure)
+try {
+    $cred = New-Object LexwareKeyring.Native+CREDENTIAL
+    $cred.Type = 1                              # CRED_TYPE_GENERIC
+    $cred.Persist = 2                           # CRED_PERSIST_LOCAL_MACHINE
+    $cred.TargetName = 'api-token.lexware-mcp'  # "<account>.<service>"
+    $cred.UserName = 'api-token'
+    $cred.CredentialBlob = $blob
+    $cred.CredentialBlobSize = $secure.Length * 2   # UTF-16 bytes, no terminator
+    if (-not [LexwareKeyring.Native]::CredWriteW([ref]$cred, 0)) {
+        throw "CredWrite failed (Win32 error $([Runtime.InteropServices.Marshal]::GetLastWin32Error()))"
+    }
+    Write-Host 'Stored Lexware API token in Windows Credential Manager.'
+} finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeCoTaskMemUnicode($blob)
+    $secure.Dispose()
+    Remove-Variable secure, blob
+}
 ```
+
+> Using a custom `LEXWARE_KEYRING_SERVICE` (e.g. `acme`)? Set `TargetName` to
+> `api-token.acme` to match — the server looks the token up under
+> `<account>.<service>`.
 
 #### Linux
 
