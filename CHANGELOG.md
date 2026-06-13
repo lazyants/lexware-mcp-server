@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm package: [`@lazyants/lexware-mcp-server`](https://www.npmjs.com/package/@lazyants/lexware-mcp-server)
 - MCP Registry: [`io.github.lazyants/lexware`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.lazyants/lexware)
 
+## [3.1.0] — 2026-06-13
+
+### Added
+
+- Read-only API-reference MCP Resource `reference://lexware/api`
+  (`text/markdown`) exposing a concise Lexware Office API quick-reference
+  so clients can pull it without a tool call. Registered on the main
+  binary and all five split entry points (#45).
+
 ## [3.0.1] — 2026-06-13
 
 ### Changed
@@ -213,6 +222,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[3.1.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.1.0
 [3.0.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.0.1
 [3.0.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.0.0
 [2.0.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v2.0.0
