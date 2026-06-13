@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
 import { UuidSchema } from '../schemas/common.js';
+import { LEXWARE_APP_BASE } from '../constants.js';
 
 export function registerDownPaymentInvoiceTools(server: McpServer): void {
   server.registerTool('lexware_get_down_payment_invoice', {
@@ -55,6 +56,6 @@ export function registerDownPaymentInvoiceTools(server: McpServer): void {
       openWorldHint: false,
     },
   }, handleToolRequest(async (params) => {
-    return { deeplink: `https://app.lexware.io/permalink/down-payment-invoices/edit/${params.id}` };
+    return { deeplink: `${LEXWARE_APP_BASE}/permalink/down-payment-invoices/edit/${params.id}` };
   }));
 }

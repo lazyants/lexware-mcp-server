@@ -57,6 +57,17 @@ describe('lexware client', () => {
     await expect(lexwareRequest('GET', '/profile')).rejects.toThrow('LEXWARE_API_TOKEN');
   });
 
+  it('missing-token error links to the lexware.de token page, never lexware.io', async () => {
+    delete process.env.LEXWARE_API_TOKEN;
+    const { lexwareRequest } = await import('../services/lexware.js');
+    const message = await lexwareRequest('GET', '/profile').then(
+      () => '',
+      (err: unknown) => (err as Error).message,
+    );
+    expect(message).toContain('https://app.lexware.de/addons/public-api');
+    expect(message).not.toContain('lexware.io');
+  });
+
   it('creates client with correct base URL and auth header', async () => {
     mockRequest.mockResolvedValue({ data: { ok: true } });
     const { lexwareRequest } = await import('../services/lexware.js');

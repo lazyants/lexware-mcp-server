@@ -174,7 +174,7 @@ describe('credit-notes tool registry', () => {
       };
       // Sales-document deeplinks use `edit/` (only contacts use `view/`).
       expect(result.structuredContent.deeplink).toBe(
-        'https://app.lexware.io/permalink/credit-notes/edit/cn-7',
+        'https://app.lexware.de/permalink/credit-notes/edit/cn-7',
       );
       expect(mockLexwareRequest).not.toHaveBeenCalled();
     });

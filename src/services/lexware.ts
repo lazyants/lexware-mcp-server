@@ -9,7 +9,7 @@ function getToken(): string {
   if (!token) {
     throw new Error(
       'LEXWARE_API_TOKEN environment variable is required. ' +
-      'Get your token from https://app.lexware.io/settings/public-api'
+      'Get your token from https://app.lexware.de/addons/public-api'
     );
   }
   return token;

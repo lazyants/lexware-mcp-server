@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
 import { UuidSchema } from '../schemas/common.js';
+import { LEXWARE_APP_BASE } from '../constants.js';
 
 export function registerQuotationTools(server: McpServer): void {
   server.registerTool('lexware_create_quotation', {
@@ -79,6 +80,6 @@ export function registerQuotationTools(server: McpServer): void {
       openWorldHint: false,
     },
   }, handleToolRequest(async (params) => {
-    return { deeplink: `https://app.lexware.io/permalink/quotations/edit/${params.id}` };
+    return { deeplink: `${LEXWARE_APP_BASE}/permalink/quotations/edit/${params.id}` };
   }));
 }

@@ -1,8 +1,9 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { lexwareRequest } from '../services/lexware.js';
-import { handleToolRequest, formatResponse } from '../helpers.js';
+import { handleToolRequest } from '../helpers.js';
 import { UuidSchema, PaginationParams } from '../schemas/common.js';
+import { LEXWARE_APP_BASE } from '../constants.js';
 
 export function registerContactTools(server: McpServer): void {
   server.registerTool('lexware_list_contacts', {
@@ -55,8 +56,8 @@ export function registerContactTools(server: McpServer): void {
     description: 'Get a direct URL to view a contact in the Lexware web app.',
     inputSchema: z.object({ id: UuidSchema.describe('Contact ID') }),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  }, async (params) => {
-    const url = `https://app.lexware.io/permalink/contacts/view/${params.id}`;
-    return formatResponse({ url });
-  });
+  }, handleToolRequest(async (params: { id: string }) => {
+    const url = `${LEXWARE_APP_BASE}/permalink/contacts/view/${params.id}`;
+    return { url };
+  }));
 }

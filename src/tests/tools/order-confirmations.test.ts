@@ -134,7 +134,7 @@ describe('order-confirmations tool registry', () => {
         structuredContent: { deeplink: string };
       };
       expect(result.structuredContent.deeplink).toBe(
-        'https://app.lexware.io/permalink/order-confirmations/edit/oc-9',
+        'https://app.lexware.de/permalink/order-confirmations/edit/oc-9',
       );
       expect(mockLexwareRequest).not.toHaveBeenCalled();
     });
