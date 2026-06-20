@@ -15,6 +15,79 @@ function getToken(): string {
   return token;
 }
 
+// setTimeout coerces its delay to a 32-bit signed int, so a value above this
+// ceiling silently wraps and can fire immediately. Clamp every computed delay.
+const MAX_RETRY_DELAY_MS = 2_147_483_647;
+
+// RFC 7231 §7.1.1.1 IMF-fixdate, e.g. "Wed, 21 Oct 2015 07:28:00 GMT" — the only
+// HTTP-date form a server is permitted to SEND. We parse its fields explicitly
+// rather than via Date.parse: Date.parse is a permissive PARSER, not a validator,
+// so it silently mishandles the obsolete forms (RFC 850 two-digit years → 19xx,
+// asctime → local time) AND normalizes invalid IMF-fixdate values ("31 Feb" →
+// Mar 3, hour "25" → next day), any of which would yield a WRONG delay instead of
+// a clean reject. Capturing the fields and round-tripping through Date.UTC rejects
+// every such value so the caller can fall back to exponential backoff.
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const IMF_FIXDATE = /^([A-Za-z]{3}), (\d{2}) ([A-Za-z]{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2}) GMT$/;
+
+// Parse a strict IMF-fixdate to a UTC epoch-ms, or null if any field is invalid or
+// the value was normalized (Date.UTC silently rolls over out-of-range fields and
+// maps a 0-99 year to 19xx, so the exact round-trip below is the real validation).
+// The day-name is redundant with the date but a conforming sender always sets it
+// correctly, so a mismatch means a corrupt header → reject (→ exponential backoff).
+function parseImfFixdate(value: string): number | null {
+  const m = IMF_FIXDATE.exec(value);
+  if (!m) return null;
+  const month = MONTHS.indexOf(m[3]);
+  if (month < 0) return null;
+  const day = Number(m[2]);
+  const year = Number(m[4]);
+  const hour = Number(m[5]);
+  const minute = Number(m[6]);
+  const second = Number(m[7]);
+  const ms = Date.UTC(year, month, day, hour, minute, second);
+  const d = new Date(ms);
+  if (
+    d.getUTCFullYear() !== year ||
+    d.getUTCMonth() !== month ||
+    d.getUTCDate() !== day ||
+    d.getUTCHours() !== hour ||
+    d.getUTCMinutes() !== minute ||
+    d.getUTCSeconds() !== second ||
+    DAYS[d.getUTCDay()] !== m[1]
+  ) {
+    return null;
+  }
+  return ms;
+}
+
+/**
+ * Parse an RFC 7231 `Retry-After` header into a non-negative millisecond delay.
+ * The header is either delta-seconds (a bare integer) OR an HTTP-date — a bare
+ * `parseInt` turned a date into `NaN`, so `setTimeout(NaN)` fired immediately and
+ * defeated the 429 backoff. Returns null when absent or unparseable (including the
+ * obsolete non-IMF-fixdate forms) so the caller falls back to exponential backoff;
+ * clamps to a finite, non-negative delay.
+ */
+export function parseRetryAfterMs(
+  retryAfter: string | undefined,
+  now: number = Date.now()
+): number | null {
+  if (!retryAfter) return null;
+  const trimmed = retryAfter.trim();
+
+  // delta-seconds: a bare non-negative integer count of seconds.
+  if (/^\d+$/.test(trimmed)) {
+    return Math.min(Number(trimmed) * 1000, MAX_RETRY_DELAY_MS);
+  }
+
+  // HTTP-date (strict IMF-fixdate): delay until that instant, never into the past.
+  const dateMs = parseImfFixdate(trimmed);
+  if (dateMs === null) return null;
+  return Math.min(Math.max(dateMs - now, 0), MAX_RETRY_DELAY_MS);
+}
+
 function createClient(): AxiosInstance {
   const client = axios.create({
     baseURL: LEXWARE_API_BASE,
@@ -38,14 +111,8 @@ function createClient(): AxiosInstance {
           return Promise.reject(new Error('Rate limit exceeded after maximum retries'));
         }
 
-        const retryAfter = error.response.headers['retry-after'];
-        let delay: number;
-
-        if (retryAfter) {
-          delay = parseInt(retryAfter, 10) * 1000;
-        } else {
-          delay = Math.pow(2, retryCount) * 1000;
-        }
+        const retryAfterMs = parseRetryAfterMs(error.response.headers['retry-after']);
+        const delay = retryAfterMs ?? Math.pow(2, retryCount) * 1000;
 
         (config as unknown as Record<string, unknown>).__retryCount = retryCount + 1;
         console.error(`[lexware-mcp] Rate limited. Retrying in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
