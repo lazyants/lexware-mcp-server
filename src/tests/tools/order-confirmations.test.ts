@@ -73,10 +73,7 @@ describe('order-confirmations tool registry', () => {
       const result = (await dl.handler({ id: 'oc-1' })) as {
         structuredContent: { fileName: string; contentType: string; contentBase64: string };
       };
-      expect(mockLexwareDownload).toHaveBeenCalledExactlyOnceWith(
-        '/order-confirmations/oc-1/file',
-        'application/pdf',
-      );
+      expect(mockLexwareDownload).toHaveBeenCalledExactlyOnceWith('/order-confirmations/oc-1/file');
       expect(result.structuredContent.fileName).toBe('oc.pdf');
       expect(result.structuredContent.contentBase64).toBe(Buffer.from('OC').toString('base64'));
     });
@@ -93,24 +90,6 @@ describe('order-confirmations tool registry', () => {
         structuredContent: { fileName: string };
       };
       expect(result.structuredContent.fileName).toBe('order-confirmation.pdf');
-    });
-
-    it('threads format="xml" to the application/xml Accept and yields order-confirmation.xml on XML contentType', async () => {
-      mockLexwareDownload.mockResolvedValue({
-        fileName: undefined,
-        contentType: 'application/xml',
-        data: Buffer.from('<xml/>'),
-      });
-      const tools = await loadAndRegister();
-      const dl = getTool(tools, 'lexware_download_order_confirmation_file');
-      const result = (await dl.handler({ id: 'oc-x', format: 'xml' })) as {
-        structuredContent: { fileName: string };
-      };
-      expect(mockLexwareDownload).toHaveBeenCalledExactlyOnceWith(
-        '/order-confirmations/oc-x/file',
-        'application/xml',
-      );
-      expect(result.structuredContent.fileName).toBe('order-confirmation.xml');
     });
   });
 

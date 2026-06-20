@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
-import { UuidSchema, DownloadFormat, downloadAccept, downloadFallbackName } from '../schemas/common.js';
+import { UuidSchema } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
 
 export function registerOrderConfirmationTools(server: McpServer): void {
@@ -42,12 +42,9 @@ export function registerOrderConfirmationTools(server: McpServer): void {
 
   server.registerTool('lexware_download_order_confirmation_file', {
     title: 'Download Order Confirmation File',
-    description:
-      'Download the file for an order confirmation. Defaults to PDF; pass format="xml" to request ' +
-      'the XRechnung XML e-invoice when available (the API returns whatever representation it can render).',
+    description: 'Download the PDF file for an order confirmation.',
     inputSchema: z.object({
       id: UuidSchema.describe('Order confirmation UUID'),
-      format: DownloadFormat,
     }),
     annotations: {
       readOnlyHint: true,
@@ -56,9 +53,9 @@ export function registerOrderConfirmationTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    const file = await lexwareDownload(`/order-confirmations/${params.id}/file`, downloadAccept(params.format));
+    const file = await lexwareDownload(`/order-confirmations/${params.id}/file`);
     return {
-      fileName: file.fileName || downloadFallbackName('order-confirmation', file.contentType),
+      fileName: file.fileName || 'order-confirmation.pdf',
       contentType: file.contentType,
       contentBase64: file.data.toString('base64'),
     };

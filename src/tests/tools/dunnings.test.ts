@@ -73,10 +73,7 @@ describe('dunnings tool registry', () => {
       const result = (await dl.handler({ id: 'd-1' })) as {
         structuredContent: { fileName: string; contentType: string; contentBase64: string };
       };
-      expect(mockLexwareDownload).toHaveBeenCalledExactlyOnceWith(
-        '/dunnings/d-1/file',
-        'application/pdf',
-      );
+      expect(mockLexwareDownload).toHaveBeenCalledExactlyOnceWith('/dunnings/d-1/file');
       expect(result.structuredContent.fileName).toBe('d.pdf');
       expect(result.structuredContent.contentBase64).toBe(Buffer.from('DUN').toString('base64'));
     });
@@ -93,24 +90,6 @@ describe('dunnings tool registry', () => {
         structuredContent: { fileName: string };
       };
       expect(result.structuredContent.fileName).toBe('dunning.pdf');
-    });
-
-    it('threads format="xml" to the application/xml Accept and yields dunning.xml on XML contentType', async () => {
-      mockLexwareDownload.mockResolvedValue({
-        fileName: undefined,
-        contentType: 'application/xml',
-        data: Buffer.from('<xml/>'),
-      });
-      const tools = await loadAndRegister();
-      const dl = getTool(tools, 'lexware_download_dunning_file');
-      const result = (await dl.handler({ id: 'd-x', format: 'xml' })) as {
-        structuredContent: { fileName: string };
-      };
-      expect(mockLexwareDownload).toHaveBeenCalledExactlyOnceWith(
-        '/dunnings/d-x/file',
-        'application/xml',
-      );
-      expect(result.structuredContent.fileName).toBe('dunning.xml');
     });
   });
 

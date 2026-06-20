@@ -12,18 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- e-invoice (XRechnung) XML download for the seven sales-voucher download
-  tools (`lexware_download_invoice_file`, `lexware_download_credit_note_file`,
-  `lexware_download_down_payment_invoice_file`,
-  `lexware_download_order_confirmation_file`,
-  `lexware_download_delivery_note_file`, `lexware_download_quotation_file`,
-  `lexware_download_dunning_file`). Each gains an optional `format` parameter
-  (`pdf` default, or `xml`) that threads the matching `Accept` header through
-  `lexwareDownload`. The default path is byte-for-byte unchanged (still PDF,
-  still the per-tool `<resource>.pdf` fallback name); the fallback filename
+- e-invoice (XRechnung) XML download for the three voucher download tools whose
+  Lexware endpoints support it — `lexware_download_invoice_file`,
+  `lexware_download_credit_note_file`, and
+  `lexware_download_down_payment_invoice_file`. Each gains an optional `format`
+  parameter (`pdf` default, or `xml`) that threads the matching `Accept` header
+  through `lexwareDownload`. The default path is byte-for-byte unchanged (still
+  PDF, still the per-tool `<resource>.pdf` fallback name); the fallback filename
   only swaps to `.xml` when the API actually returns an XML content type. The
-  generic `lexware_download_file` tool (`GET /files/{id}`) is intentionally
-  excluded — it serves stored files, not rendered XRechnung.
+  remaining voucher download tools (quotations, order confirmations, delivery
+  notes, dunnings) and the generic `lexware_download_file` tool stay PDF-only —
+  the Lexware API documents those endpoints as PDF-only and rejects `xml` with
+  `406 Not Acceptable`, so no `format` parameter is exposed there.
 - Three deeplink tools for parity with the existing permalink tools:
   `lexware_deeplink_voucher` (`/permalink/vouchers/edit/{id}`),
   `lexware_deeplink_recurring_template`

@@ -6,7 +6,7 @@ MCP server for the [Lexware Office API](https://developers.lexware.io/docs/). Ma
 
 > **Unofficial — community project.** Not affiliated with, endorsed by, or supported by Lexware GmbH or Haufe Group. "Lexware" and "Lexware Office" are trademarks of their respective owners; used here only to identify the API this client targets (nominative fair use).
 
-**64 tools** across 20 resource domains, with 6 entry points so you can pick the right server for your MCP client's tool limit.
+**67 tools** across 20 resource domains, with 6 entry points so you can pick the right server for your MCP client's tool limit.
 
 ## Installation
 

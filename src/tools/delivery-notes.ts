@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
-import { UuidSchema, DownloadFormat, downloadAccept, downloadFallbackName } from '../schemas/common.js';
+import { UuidSchema } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
 
 export function registerDeliveryNoteTools(server: McpServer): void {
@@ -42,12 +42,9 @@ export function registerDeliveryNoteTools(server: McpServer): void {
 
   server.registerTool('lexware_download_delivery_note_file', {
     title: 'Download Delivery Note File',
-    description:
-      'Download the file for a delivery note. Defaults to PDF; pass format="xml" to request the XML ' +
-      'representation when available (the API returns whatever representation it can render).',
+    description: 'Download the PDF file for a delivery note.',
     inputSchema: z.object({
       id: UuidSchema.describe('Delivery note UUID'),
-      format: DownloadFormat,
     }),
     annotations: {
       readOnlyHint: true,
@@ -56,9 +53,9 @@ export function registerDeliveryNoteTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    const file = await lexwareDownload(`/delivery-notes/${params.id}/file`, downloadAccept(params.format));
+    const file = await lexwareDownload(`/delivery-notes/${params.id}/file`);
     return {
-      fileName: file.fileName || downloadFallbackName('delivery-note', file.contentType),
+      fileName: file.fileName || 'delivery-note.pdf',
       contentType: file.contentType,
       contentBase64: file.data.toString('base64'),
     };
