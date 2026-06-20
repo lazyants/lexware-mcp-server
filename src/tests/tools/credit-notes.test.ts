@@ -62,7 +62,7 @@ describe('credit-notes tool registry', () => {
   });
 
   describe('lexware_download_credit_note_file', () => {
-    it('calls lexwareDownload with the file path and returns base64 payload', async () => {
+    it('calls lexwareDownload with the file path + PDF Accept and returns base64 payload', async () => {
       mockLexwareDownload.mockResolvedValue({
         fileName: 'mycn.pdf',
         contentType: 'application/pdf',
@@ -73,7 +73,11 @@ describe('credit-notes tool registry', () => {
       const result = (await dl.handler({ id: 'cn-1' })) as {
         structuredContent: { fileName: string; contentType: string; contentBase64: string };
       };
-      expect(mockLexwareDownload).toHaveBeenCalledExactlyOnceWith('/credit-notes/cn-1/file');
+      // Default (no format) requests PDF — the regression catcher for the bug.
+      expect(mockLexwareDownload).toHaveBeenCalledExactlyOnceWith(
+        '/credit-notes/cn-1/file',
+        'application/pdf',
+      );
       expect(mockLexwareRequest).not.toHaveBeenCalled();
       expect(result.structuredContent.fileName).toBe('mycn.pdf');
       expect(result.structuredContent.contentType).toBe('application/pdf');
@@ -94,6 +98,30 @@ describe('credit-notes tool registry', () => {
         structuredContent: { fileName: string };
       };
       expect(result.structuredContent.fileName).toBe('credit-note.pdf');
+    });
+
+    it('threads format="xml" to the application/xml Accept and yields credit-note.xml on XML contentType', async () => {
+      mockLexwareDownload.mockResolvedValue({
+        fileName: undefined,
+        contentType: 'application/xml',
+        data: Buffer.from('<xml/>'),
+      });
+      const tools = await loadAndRegister();
+      const dl = getTool(tools, 'lexware_download_credit_note_file');
+      const result = (await dl.handler({ id: 'cn-x', format: 'xml' })) as {
+        structuredContent: { fileName: string };
+      };
+      expect(mockLexwareDownload).toHaveBeenCalledExactlyOnceWith(
+        '/credit-notes/cn-x/file',
+        'application/xml',
+      );
+      expect(result.structuredContent.fileName).toBe('credit-note.xml');
+    });
+
+    it('declares an optional format param in its input schema', async () => {
+      const tools = await loadAndRegister();
+      const dl = getTool(tools, 'lexware_download_credit_note_file');
+      expect(dl.schemaShape).toHaveProperty('format');
     });
   });
 

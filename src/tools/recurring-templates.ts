@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { lexwareRequest } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
 import { UuidSchema, PaginationParams } from '../schemas/common.js';
+import { LEXWARE_APP_BASE } from '../constants.js';
 
 export function registerRecurringTemplateTools(server: McpServer): void {
   server.registerTool('lexware_list_recurring_templates', {
@@ -38,5 +39,21 @@ export function registerRecurringTemplateTools(server: McpServer): void {
     },
   }, handleToolRequest(async (params) => {
     return lexwareRequest('GET', `/recurring-templates/${params.id}`);
+  }));
+
+  server.registerTool('lexware_deeplink_recurring_template', {
+    title: 'Deeplink to Recurring Template',
+    description: 'Get a direct link to view/edit a recurring invoice template in the Lexware web app.',
+    inputSchema: z.object({
+      id: UuidSchema.describe('Recurring template UUID'),
+    }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  }, handleToolRequest(async (params) => {
+    return { deeplink: `${LEXWARE_APP_BASE}/permalink/recurring-templates/edit/${params.id}` };
   }));
 }

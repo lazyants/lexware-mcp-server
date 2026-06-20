@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { lexwareRequest, lexwareUpload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
 import { UuidSchema, PaginationParams } from '../schemas/common.js';
+import { LEXWARE_APP_BASE } from '../constants.js';
 
 export function registerVoucherTools(server: McpServer): void {
   server.registerTool('lexware_create_voucher', {
@@ -97,5 +98,21 @@ export function registerVoucherTools(server: McpServer): void {
   }, handleToolRequest(async (params) => {
     const buffer = Buffer.from(params.contentBase64, 'base64');
     return lexwareUpload(`/vouchers/${params.id}/files`, buffer, params.fileName, params.contentType || 'application/pdf');
+  }));
+
+  server.registerTool('lexware_deeplink_voucher', {
+    title: 'Deeplink to Voucher',
+    description: 'Get a direct link to view/edit a bookkeeping voucher in the Lexware web app.',
+    inputSchema: z.object({
+      voucherId: UuidSchema.describe('Voucher UUID'),
+    }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  }, handleToolRequest(async (params) => {
+    return { deeplink: `${LEXWARE_APP_BASE}/permalink/vouchers/edit/${params.voucherId}` };
   }));
 }

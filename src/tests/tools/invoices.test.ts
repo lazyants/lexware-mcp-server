@@ -141,6 +141,85 @@ describe('invoices tool registry', () => {
     });
   });
 
+  describe('lexware_download_invoice_file', () => {
+    it('declares an optional format param in its input schema', async () => {
+      const tools = await registerAndCapture();
+      const dl = getTool(tools, 'lexware_download_invoice_file');
+      expect(dl.schemaShape).toHaveProperty('format');
+      expect(dl.schemaShape).toHaveProperty('id');
+    });
+
+    it('requests PDF (no format) and keeps the invoice.pdf fallback name', async () => {
+      // Regression catcher for the original bug: the default/omitted path must
+      // still ask for application/pdf and keep the historical fallback name.
+      mockLexwareDownload.mockResolvedValue({
+        fileName: undefined,
+        contentType: 'application/pdf',
+        data: Buffer.from('PDF'),
+      });
+      const tools = await registerAndCapture();
+      const dl = getTool(tools, 'lexware_download_invoice_file');
+      const result = (await dl.handler({ id: 'inv-d' })) as {
+        structuredContent: { fileName: string; contentType: string };
+      };
+      expect(mockLexwareDownload).toHaveBeenCalledExactlyOnceWith(
+        '/invoices/inv-d/file',
+        'application/pdf',
+      );
+      expect(result.structuredContent.fileName).toBe('invoice.pdf');
+    });
+
+    it('threads format="xml" to the application/xml Accept and yields invoice.xml on XML contentType', async () => {
+      mockLexwareDownload.mockResolvedValue({
+        fileName: undefined,
+        contentType: 'application/xml',
+        data: Buffer.from('<xml/>'),
+      });
+      const tools = await registerAndCapture();
+      const dl = getTool(tools, 'lexware_download_invoice_file');
+      const result = (await dl.handler({ id: 'inv-x', format: 'xml' })) as {
+        structuredContent: { fileName: string; contentType: string };
+      };
+      expect(mockLexwareDownload).toHaveBeenCalledExactlyOnceWith(
+        '/invoices/inv-x/file',
+        'application/xml',
+      );
+      // Extension swaps to .xml ONLY because the returned contentType is XML.
+      expect(result.structuredContent.fileName).toBe('invoice.xml');
+      expect(result.structuredContent.contentType).toBe('application/xml');
+    });
+
+    it('keeps invoice.pdf even with format="xml" when the API still returns a PDF', async () => {
+      // The filename follows the RETURNED contentType, not the requested format —
+      // so an xml request that the API answers with a PDF keeps the .pdf name.
+      mockLexwareDownload.mockResolvedValue({
+        fileName: undefined,
+        contentType: 'application/pdf',
+        data: Buffer.from('PDF'),
+      });
+      const tools = await registerAndCapture();
+      const dl = getTool(tools, 'lexware_download_invoice_file');
+      const result = (await dl.handler({ id: 'inv-p', format: 'xml' })) as {
+        structuredContent: { fileName: string };
+      };
+      expect(result.structuredContent.fileName).toBe('invoice.pdf');
+    });
+
+    it('honors a server-provided content-disposition filename over the fallback', async () => {
+      mockLexwareDownload.mockResolvedValue({
+        fileName: 'RE-2026-001.xml',
+        contentType: 'application/xml',
+        data: Buffer.from('<xml/>'),
+      });
+      const tools = await registerAndCapture();
+      const dl = getTool(tools, 'lexware_download_invoice_file');
+      const result = (await dl.handler({ id: 'inv-srv', format: 'xml' })) as {
+        structuredContent: { fileName: string };
+      };
+      expect(result.structuredContent.fileName).toBe('RE-2026-001.xml');
+    });
+  });
+
   describe('lexware_pursue_invoice', () => {
     // Documented endpoint:
     //   POST /v1/invoices?precedingSalesVoucherId={id}[&finalize=true]

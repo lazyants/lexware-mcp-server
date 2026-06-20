@@ -202,6 +202,24 @@ describe('lexware client', () => {
       const result = await lexwareDownload('/files/abc');
       expect(result.contentType).toBe('application/octet-stream');
     });
+
+    it('sends Accept: application/pdf by default (byte-for-byte legacy behaviour)', async () => {
+      mockRequest.mockResolvedValue({ data: new ArrayBuffer(4), headers: {} });
+      const { lexwareDownload } = await import('../services/lexware.js');
+      await lexwareDownload('/invoices/abc/file');
+      expect(mockRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ headers: { Accept: 'application/pdf' } }),
+      );
+    });
+
+    it('sends Accept: application/xml when explicitly passed', async () => {
+      mockRequest.mockResolvedValue({ data: new ArrayBuffer(4), headers: {} });
+      const { lexwareDownload } = await import('../services/lexware.js');
+      await lexwareDownload('/invoices/abc/file', 'application/xml');
+      expect(mockRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ headers: { Accept: 'application/xml' } }),
+      );
+    });
   });
 
   describe('lexwareUpload', () => {

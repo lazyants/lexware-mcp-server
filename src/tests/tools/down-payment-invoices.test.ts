@@ -60,6 +60,7 @@ describe('down-payment-invoices tool registry', () => {
       };
       expect(mockLexwareDownload).toHaveBeenCalledExactlyOnceWith(
         '/down-payment-invoices/dpi-1/file',
+        'application/pdf',
       );
       expect(result.structuredContent.fileName).toBe('dpi.pdf');
       expect(result.structuredContent.contentBase64).toBe(Buffer.from('DPI').toString('base64'));
@@ -77,6 +78,24 @@ describe('down-payment-invoices tool registry', () => {
         structuredContent: { fileName: string };
       };
       expect(result.structuredContent.fileName).toBe('down-payment-invoice.pdf');
+    });
+
+    it('threads format="xml" to the application/xml Accept and yields down-payment-invoice.xml on XML contentType', async () => {
+      mockLexwareDownload.mockResolvedValue({
+        fileName: undefined,
+        contentType: 'application/xml',
+        data: Buffer.from('<xml/>'),
+      });
+      const tools = await loadAndRegister();
+      const dl = getTool(tools, 'lexware_download_down_payment_invoice_file');
+      const result = (await dl.handler({ id: 'dpi-x', format: 'xml' })) as {
+        structuredContent: { fileName: string };
+      };
+      expect(mockLexwareDownload).toHaveBeenCalledExactlyOnceWith(
+        '/down-payment-invoices/dpi-x/file',
+        'application/xml',
+      );
+      expect(result.structuredContent.fileName).toBe('down-payment-invoice.xml');
     });
   });
 

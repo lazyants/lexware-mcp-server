@@ -23,10 +23,11 @@ describe('vouchers tool registry', () => {
     mockLexwareUpload.mockReset();
   });
 
-  it('registers exactly the expected 5 voucher tools', async () => {
+  it('registers exactly the expected 6 voucher tools', async () => {
     const tools = await loadAndRegister();
     expect([...tools.keys()].sort()).toEqual([
       'lexware_create_voucher',
+      'lexware_deeplink_voucher',
       'lexware_get_voucher',
       'lexware_list_vouchers',
       'lexware_update_voucher',
@@ -193,6 +194,20 @@ describe('vouchers tool registry', () => {
         'note.pdf',
         'application/pdf',
       );
+    });
+  });
+
+  describe('lexware_deeplink_voucher', () => {
+    it('returns a /permalink/vouchers/edit/{id} URL without hitting the API', async () => {
+      const tools = await loadAndRegister();
+      const deeplink = getTool(tools, 'lexware_deeplink_voucher');
+      const result = (await deeplink.handler({ voucherId: 'v-7' })) as {
+        structuredContent: { deeplink: string };
+      };
+      expect(result.structuredContent.deeplink).toBe(
+        'https://app.lexware.de/permalink/vouchers/edit/v-7',
+      );
+      expect(mockLexwareRequest).not.toHaveBeenCalled();
     });
   });
 });
