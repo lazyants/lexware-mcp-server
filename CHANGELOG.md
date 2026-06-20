@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm package: [`@lazyants/lexware-mcp-server`](https://www.npmjs.com/package/@lazyants/lexware-mcp-server)
 - MCP Registry: [`io.github.lazyants/lexware`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.lazyants/lexware)
 
+## [3.1.1] — 2026-06-20
+
+### Security
+
+- Bump the `hono` override to `^4.12.25` and the `form-data` dependency to
+  `^4.0.6` to clear two HIGH advisories that started failing the
+  `npm audit --audit-level=moderate --omit=dev` CI gate: `form-data` CRLF
+  injection via unescaped multipart field/file names (GHSA-hmw2-7cc7-3qxx)
+  and the `hono` `serve-static` path traversal et al. (`hono <= 4.12.24`).
+  Dependency-only change; no runtime or API behaviour changes.
+
 ## [3.1.0] — 2026-06-13
 
 ### Added
@@ -222,6 +233,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[3.1.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.1.1
 [3.1.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.1.0
 [3.0.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.0.1
 [3.0.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.0.0

@@ -59,14 +59,29 @@ describe('security overrides (npm-audit gate regression guard)', () => {
 
   describe('hono (GHSA-xrhx-7g5j-rcj5 et al.)', () => {
     it('declares the pinned override in package.json', () => {
-      expect(overrides.hono).toBe('^4.12.21');
+      expect(overrides.hono).toBe('^4.12.25');
     });
 
-    it('resolves every lockfile entry to >= 4.12.21', () => {
+    it('resolves every lockfile entry to >= 4.12.25', () => {
       const entries = resolvedVersions('hono');
       // hono may be absent from the production tree; if present it must be patched.
       for (const { path, version } of entries) {
-        expect(gte(version, '4.12.21'), `${path} resolved hono ${version} < 4.12.21`).toBe(true);
+        expect(gte(version, '4.12.25'), `${path} resolved hono ${version} < 4.12.25`).toBe(true);
+      }
+    });
+  });
+
+  describe('form-data (GHSA-hmw2-7cc7-3qxx CRLF injection)', () => {
+    it('declares the patched floor as a direct dependency', () => {
+      const deps = (pkg.dependencies ?? {}) as Record<string, string>;
+      expect(deps['form-data']).toBe('^4.0.6');
+    });
+
+    it('resolves every lockfile entry to >= 4.0.6', () => {
+      const entries = resolvedVersions('form-data');
+      expect(entries.length).toBeGreaterThan(0);
+      for (const { path, version } of entries) {
+        expect(gte(version, '4.0.6'), `${path} resolved form-data ${version} < 4.0.6`).toBe(true);
       }
     });
   });
