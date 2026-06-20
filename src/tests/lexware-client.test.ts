@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { AxiosError } from 'axios';
+import util from 'node:util';
+import { AxiosError, AxiosHeaders } from 'axios';
 
 // GOTCHA: vi.mock is hoisted above top-level const declarations. Use vi.hoisted()
 // to create mock fns that are accessible inside the vi.mock factory.
@@ -253,6 +254,64 @@ describe('lexware client', () => {
       );
       // FormData headers include content-type with boundary
       expect(callArgs.headers['content-type']).toMatch(/multipart\/form-data/);
+    });
+  });
+
+  // Locks the intentional behaviour change from #51: lexwareUpload/lexwareDownload
+  // used to throw the raw AxiosError (token-bearing). They now route through
+  // wrapLexwareError, so they throw a formatted, token-free Error.
+  describe('upload/download error redaction (#51)', () => {
+    const TOKEN = 'sk-leaky-bearer-DO-NOT-LEAK-9f3a';
+
+    function tokenBearingError(data: unknown, statusText = 'Bad Request'): AxiosError {
+      const err = new AxiosError('Request failed with status code 400');
+      const config = {
+        headers: new AxiosHeaders({ Authorization: `Bearer ${TOKEN}` }),
+        auth: { username: 'u', password: TOKEN },
+      } as unknown as AxiosError['config'];
+      err.config = config;
+      (err as { request?: unknown }).request = {
+        _header: `POST /v1/files HTTP/1.1\r\nAuthorization: Bearer ${TOKEN}\r\n\r\n`,
+      };
+      err.response = {
+        status: 400,
+        statusText,
+        data,
+        headers: {},
+        config,
+        request: {
+          _header: `POST /v1/files HTTP/1.1\r\nAuthorization: Bearer ${TOKEN}\r\n\r\n`,
+        },
+      } as unknown as AxiosError['response'];
+      return err;
+    }
+
+    it('lexwareUpload routes a token-bearing AxiosError through the sanitizer', async () => {
+      mockRequest.mockRejectedValue(
+        tokenBearingError({ message: 'Bad upload', status: 400 }),
+      );
+      const { lexwareUpload } = await import('../services/lexware.js');
+      const thrown = await lexwareUpload('/files', Buffer.from('x'), 'a.pdf', 'application/pdf').then(
+        () => { throw new Error('expected rejection'); },
+        (err: unknown) => err,
+      );
+      expect((thrown as Error).message).toContain('Lexware API [400]');
+      expect(util.inspect(thrown, { depth: null })).not.toContain(TOKEN);
+    });
+
+    it('lexwareDownload routes a non-JSON error body through the generic formatter', async () => {
+      // arraybuffer response → body is not a JSON object with message/IssueList,
+      // so formatError falls through to the generic "Lexware API error:" branch.
+      mockRequest.mockRejectedValue(
+        tokenBearingError(new ArrayBuffer(8), 'Bad Request'),
+      );
+      const { lexwareDownload } = await import('../services/lexware.js');
+      const thrown = await lexwareDownload('/invoices/abc/file').then(
+        () => { throw new Error('expected rejection'); },
+        (err: unknown) => err,
+      );
+      expect((thrown as Error).message).toMatch(/Lexware API error:/);
+      expect(util.inspect(thrown, { depth: null })).not.toContain(TOKEN);
     });
   });
 });
