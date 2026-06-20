@@ -1,6 +1,6 @@
 {
   "name": "@lazyants/lexware-mcp-server",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "description": "MCP server for the Lexware Office API — manage invoices, contacts, articles, vouchers, and more",
   "type": "module",
   "main": "dist/index.js",
@@ -48,13 +48,13 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "axios": "^1.16.0",
-    "form-data": "^4.0.0",
+    "form-data": "^4.0.6",
     "zod": "^4.4.0"
   },
   "overrides": {
     "fast-uri": "^3.1.2",
     "brace-expansion": "^5.0.6",
-    "hono": "^4.12.21",
+    "hono": "^4.12.25",
     "qs": "^6.15.2"
   },
   "devDependencies": {
