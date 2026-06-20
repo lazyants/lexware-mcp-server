@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm package: [`@lazyants/lexware-mcp-server`](https://www.npmjs.com/package/@lazyants/lexware-mcp-server)
 - MCP Registry: [`io.github.lazyants/lexware`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.lazyants/lexware)
 
+## [3.2.1] — 2026-06-20
+
+### Security
+
+- Redact the bearer token (`LEXWARE_API_TOKEN`) from rethrown axios error cause
+  chains (defense-in-depth, #51). API errors are wrapped as
+  `new Error(msg, { cause: err })`; the chained `AxiosError` previously retained
+  the token in `config.headers.Authorization` and Node's raw `request._header`
+  block, so a logger walking the cause via `util.inspect(err, { depth: null })`
+  or `AxiosError.toJSON()` could surface it. A central `wrapLexwareError` now
+  sanitizes the error in place — scrubbing `Authorization`/`proxy-authorization`/
+  `cookie` headers (case-insensitively) on both `config` refs, and dropping
+  `config.auth`/`proxy.auth`, the `request`/`response.request` objects, and any
+  object `cause` — and every axios call site (`lexwareRequest`, `lexwareUpload`,
+  `lexwareDownload`) routes through it. `lexwareRequest` messages are unchanged;
+  `lexwareUpload`/`lexwareDownload` (previously unwrapped) now surface formatted
+  `Lexware API …` errors instead of the raw `AxiosError`. Locked with a
+  regression test asserting no token survives `util.inspect(depth:null)` or
+  `toJSON()`.
+
 ## [3.2.0] — 2026-06-20
 
 ### Added
