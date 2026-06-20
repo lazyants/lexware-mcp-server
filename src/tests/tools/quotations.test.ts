@@ -76,9 +76,30 @@ describe('quotations tool registry', () => {
       const result = (await dl.handler({ id: 'q-1' })) as {
         structuredContent: { fileName: string; contentType: string; contentBase64: string };
       };
-      expect(mockLexwareDownload).toHaveBeenCalledExactlyOnceWith('/quotations/q-1/file');
+      expect(mockLexwareDownload).toHaveBeenCalledExactlyOnceWith(
+        '/quotations/q-1/file',
+        'application/pdf',
+      );
       expect(result.structuredContent.fileName).toBe('q.pdf');
       expect(result.structuredContent.contentBase64).toBe(Buffer.from('QQ').toString('base64'));
+    });
+
+    it('threads format="xml" to the application/xml Accept and yields quotation.xml on XML contentType', async () => {
+      mockLexwareDownload.mockResolvedValue({
+        fileName: undefined,
+        contentType: 'application/xml',
+        data: Buffer.from('<xml/>'),
+      });
+      const tools = await loadAndRegister();
+      const dl = getTool(tools, 'lexware_download_quotation_file');
+      const result = (await dl.handler({ id: 'q-x', format: 'xml' })) as {
+        structuredContent: { fileName: string };
+      };
+      expect(mockLexwareDownload).toHaveBeenCalledExactlyOnceWith(
+        '/quotations/q-x/file',
+        'application/xml',
+      );
+      expect(result.structuredContent.fileName).toBe('quotation.xml');
     });
 
     it('falls back to "quotation.pdf" when the service omits fileName', async () => {

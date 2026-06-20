@@ -1,6 +1,6 @@
 {
   "name": "@lazyants/lexware-mcp-server",
-  "version": "3.1.1",
+  "version": "3.2.0",
   "description": "MCP server for the Lexware Office API — manage invoices, contacts, articles, vouchers, and more",
   "type": "module",
   "main": "dist/index.js",

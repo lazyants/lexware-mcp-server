@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
-import { UuidSchema } from '../schemas/common.js';
+import { UuidSchema, DownloadFormat, downloadAccept, downloadFallbackName } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
 
 export function registerDunningTools(server: McpServer): void {
@@ -68,9 +68,12 @@ export function registerDunningTools(server: McpServer): void {
 
   server.registerTool('lexware_download_dunning_file', {
     title: 'Download Dunning File',
-    description: 'Download the PDF file for a dunning.',
+    description:
+      'Download the file for a dunning. Defaults to PDF; pass format="xml" to request the XML ' +
+      'representation when available (the API returns whatever representation it can render).',
     inputSchema: z.object({
       id: UuidSchema.describe('Dunning UUID'),
+      format: DownloadFormat,
     }),
     annotations: {
       readOnlyHint: true,
@@ -79,9 +82,9 @@ export function registerDunningTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    const file = await lexwareDownload(`/dunnings/${params.id}/file`);
+    const file = await lexwareDownload(`/dunnings/${params.id}/file`, downloadAccept(params.format));
     return {
-      fileName: file.fileName || 'dunning.pdf',
+      fileName: file.fileName || downloadFallbackName('dunning', file.contentType),
       contentType: file.contentType,
       contentBase64: file.data.toString('base64'),
     };

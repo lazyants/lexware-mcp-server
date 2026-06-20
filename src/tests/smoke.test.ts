@@ -70,8 +70,8 @@ function registerAndCount(registerFns: Array<(s: ReturnType<typeof createServer>
 }
 
 describe('smoke tests', () => {
-  it('registers exactly 64 tools in full server', () => {
-    expect(registerAllAndCount()).toBe(64);
+  it('registers exactly 67 tools in full server', () => {
+    expect(registerAllAndCount()).toBe(67);
   });
 
   it('entry-sales registers 33 tools', () => {
@@ -94,12 +94,12 @@ describe('smoke tests', () => {
     ])).toBe(10);
   });
 
-  it('entry-bookkeeping registers 7 tools', () => {
+  it('entry-bookkeeping registers 8 tools', () => {
     expect(registerAndCount([
       registerVoucherTools,
       registerVoucherlistTools,
       registerPaymentTools,
-    ])).toBe(7);
+    ])).toBe(8);
   });
 
   it('entry-reference registers 5 tools', () => {
@@ -112,11 +112,11 @@ describe('smoke tests', () => {
     ])).toBe(5);
   });
 
-  it('entry-system registers 10 tools', () => {
+  it('entry-system registers 12 tools', () => {
     expect(registerAndCount([
       registerEventSubscriptionTools,
       registerFileTools,
       registerRecurringTemplateTools,
-    ])).toBe(10);
+    ])).toBe(12);
   });
 });

@@ -208,7 +208,8 @@ export function __resetWebhookKeyCache(): void {
 }
 
 export async function lexwareDownload(
-  path: string
+  path: string,
+  accept = 'application/pdf'
 ): Promise<{ data: Buffer; contentType: string; fileName?: string }> {
   const client = getClient();
   const response = await client.request({
@@ -216,7 +217,7 @@ export async function lexwareDownload(
     url: path,
     responseType: 'arraybuffer',
     headers: {
-      Accept: 'application/pdf',
+      Accept: accept,
     },
   });
 

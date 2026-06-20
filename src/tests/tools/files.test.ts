@@ -25,13 +25,21 @@ describe('files tool registry', () => {
     mockLexwareUpload.mockReset();
   });
 
-  it('registers exactly the expected 3 file tools', async () => {
+  it('registers exactly the expected 4 file tools', async () => {
     const tools = await loadAndRegister();
     expect([...tools.keys()].sort()).toEqual([
+      'lexware_deeplink_file',
       'lexware_download_file',
       'lexware_get_file_status',
       'lexware_upload_file',
     ]);
+  });
+
+  it('keeps lexware_download_file UNCHANGED: no format param (the generic /files/{id} tool is excluded from XML)', async () => {
+    const tools = await loadAndRegister();
+    const dl = getTool(tools, 'lexware_download_file');
+    expect(dl.schemaShape).not.toHaveProperty('format');
+    expect(dl.schemaShape).toHaveProperty('id');
   });
 
   describe('lexware_upload_file', () => {
@@ -115,6 +123,29 @@ describe('files tool registry', () => {
         'GET',
         '/files/745f3319-f473-4d55-9943-fecd942fd76d',
       );
+    });
+  });
+
+  describe('lexware_deeplink_file', () => {
+    it('returns the IDLESS /permalink/files/view inbox URL without hitting the API', async () => {
+      const tools = await loadAndRegister();
+      const deeplink = getTool(tools, 'lexware_deeplink_file');
+      const result = (await deeplink.handler({})) as {
+        structuredContent: { deeplink: string };
+      };
+      // Documented exception: this permalink opens the bookkeeping inbox, not a
+      // per-file link — so it carries NO trailing id segment.
+      expect(result.structuredContent.deeplink).toBe(
+        'https://app.lexware.de/permalink/files/view',
+      );
+      expect(result.structuredContent.deeplink).not.toMatch(/\/files\/view\/.+/);
+      expect(mockLexwareRequest).not.toHaveBeenCalled();
+    });
+
+    it('takes no id input (idless by design)', async () => {
+      const tools = await loadAndRegister();
+      const deeplink = getTool(tools, 'lexware_deeplink_file');
+      expect(deeplink.schemaShape).not.toHaveProperty('id');
     });
   });
 });

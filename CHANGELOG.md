@@ -8,6 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm package: [`@lazyants/lexware-mcp-server`](https://www.npmjs.com/package/@lazyants/lexware-mcp-server)
 - MCP Registry: [`io.github.lazyants/lexware`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.lazyants/lexware)
 
+## [3.2.0] — 2026-06-20
+
+### Added
+
+- e-invoice (XRechnung) XML download for the seven sales-voucher download
+  tools (`lexware_download_invoice_file`, `lexware_download_credit_note_file`,
+  `lexware_download_down_payment_invoice_file`,
+  `lexware_download_order_confirmation_file`,
+  `lexware_download_delivery_note_file`, `lexware_download_quotation_file`,
+  `lexware_download_dunning_file`). Each gains an optional `format` parameter
+  (`pdf` default, or `xml`) that threads the matching `Accept` header through
+  `lexwareDownload`. The default path is byte-for-byte unchanged (still PDF,
+  still the per-tool `<resource>.pdf` fallback name); the fallback filename
+  only swaps to `.xml` when the API actually returns an XML content type. The
+  generic `lexware_download_file` tool (`GET /files/{id}`) is intentionally
+  excluded — it serves stored files, not rendered XRechnung.
+- Three deeplink tools for parity with the existing permalink tools:
+  `lexware_deeplink_voucher` (`/permalink/vouchers/edit/{id}`),
+  `lexware_deeplink_recurring_template`
+  (`/permalink/recurring-templates/edit/{id}`), and `lexware_deeplink_file`.
+  The file deeplink is idless by design — per the Lexware docs it opens the
+  bookkeeping inbox of newly-uploaded files (`/permalink/files/view`), not a
+  per-file link.
+- Tool count: 64 → 67 (entry-bookkeeping 7 → 8, entry-system 10 → 12).
+
 ## [3.1.1] — 2026-06-20
 
 ### Security
@@ -233,6 +258,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[3.2.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.2.0
 [3.1.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.1.1
 [3.1.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.1.0
 [3.0.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.0.1

@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
-import { UuidSchema } from '../schemas/common.js';
+import { UuidSchema, DownloadFormat, downloadAccept, downloadFallbackName } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
 
 export function registerDownPaymentInvoiceTools(server: McpServer): void {
@@ -24,9 +24,12 @@ export function registerDownPaymentInvoiceTools(server: McpServer): void {
 
   server.registerTool('lexware_download_down_payment_invoice_file', {
     title: 'Download Down Payment Invoice File',
-    description: 'Download the PDF file for a down payment invoice.',
+    description:
+      'Download the file for a down payment invoice. Defaults to PDF; pass format="xml" to request ' +
+      'the XRechnung XML e-invoice when available (the API returns whatever representation it can render).',
     inputSchema: z.object({
       id: UuidSchema.describe('Down payment invoice UUID'),
+      format: DownloadFormat,
     }),
     annotations: {
       readOnlyHint: true,
@@ -35,9 +38,9 @@ export function registerDownPaymentInvoiceTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    const file = await lexwareDownload(`/down-payment-invoices/${params.id}/file`);
+    const file = await lexwareDownload(`/down-payment-invoices/${params.id}/file`, downloadAccept(params.format));
     return {
-      fileName: file.fileName || 'down-payment-invoice.pdf',
+      fileName: file.fileName || downloadFallbackName('down-payment-invoice', file.contentType),
       contentType: file.contentType,
       contentBase64: file.data.toString('base64'),
     };

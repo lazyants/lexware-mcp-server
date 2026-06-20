@@ -20,9 +20,10 @@ describe('recurring-templates tool registry', () => {
     mockLexwareRequest.mockReset();
   });
 
-  it('registers exactly the expected 2 recurring-template tools (read-only resource)', async () => {
+  it('registers exactly the expected 3 recurring-template tools', async () => {
     const tools = await loadAndRegister();
     expect([...tools.keys()].sort()).toEqual([
+      'lexware_deeplink_recurring_template',
       'lexware_get_recurring_template',
       'lexware_list_recurring_templates',
     ]);
@@ -68,6 +69,20 @@ describe('recurring-templates tool registry', () => {
         'GET',
         '/recurring-templates/745f3319-f473-4d55-9943-fecd942fd76d',
       );
+    });
+  });
+
+  describe('lexware_deeplink_recurring_template', () => {
+    it('returns a /permalink/recurring-templates/edit/{id} URL without hitting the API', async () => {
+      const tools = await loadAndRegister();
+      const deeplink = getTool(tools, 'lexware_deeplink_recurring_template');
+      const result = (await deeplink.handler({ id: 'rt-7' })) as {
+        structuredContent: { deeplink: string };
+      };
+      expect(result.structuredContent.deeplink).toBe(
+        'https://app.lexware.de/permalink/recurring-templates/edit/rt-7',
+      );
+      expect(mockLexwareRequest).not.toHaveBeenCalled();
     });
   });
 });

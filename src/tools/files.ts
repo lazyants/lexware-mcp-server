@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { lexwareRequest, lexwareUpload, lexwareDownload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
 import { UuidSchema } from '../schemas/common.js';
+import { LEXWARE_APP_BASE } from '../constants.js';
 
 export function registerFileTools(server: McpServer): void {
   server.registerTool('lexware_upload_file', {
@@ -59,5 +60,21 @@ export function registerFileTools(server: McpServer): void {
     },
   }, handleToolRequest(async (params) => {
     return lexwareRequest('GET', `/files/${params.id}`);
+  }));
+
+  server.registerTool('lexware_deeplink_file', {
+    title: 'Deeplink to Files Inbox',
+    // Idless by design: per the Lexware docs this permalink opens the bookkeeping
+    // inbox of newly-uploaded files, not a per-file link, so the tool takes no id.
+    description: 'Get a direct link to the bookkeeping inbox of newly-uploaded files in the Lexware web app.',
+    inputSchema: z.object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  }, handleToolRequest(async () => {
+    return { deeplink: `${LEXWARE_APP_BASE}/permalink/files/view` };
   }));
 }
