@@ -4,15 +4,32 @@ import { createPublicKey } from 'node:crypto';
 import { LEXWARE_API_BASE, MAX_RETRIES, REQUEST_TIMEOUT } from '../constants.js';
 import { LexwareLegacyError, LexwareStandardError } from '../types/common.js';
 
-function getToken(): string {
-  const token = process.env.LEXWARE_API_TOKEN;
-  if (!token) {
-    throw new Error(
-      'LEXWARE_API_TOKEN environment variable is required. ' +
-      'Get your token from https://app.lexware.de/addons/public-api'
-    );
+const KEYRING_SERVICE_DEFAULT = 'lexware-mcp';
+const KEYRING_ACCOUNT = 'api-token';
+
+async function resolveToken(): Promise<string> {
+  const service = process.env.LEXWARE_KEYRING_SERVICE ?? KEYRING_SERVICE_DEFAULT;
+
+  try {
+    const { Entry } = await import('@napi-rs/keyring');
+    const token = new Entry(service, KEYRING_ACCOUNT).getPassword();
+    if (token) return token;
+  } catch {
+    // keyring unavailable (e.g. headless Linux without libsecret) — fall through
   }
-  return token;
+
+  const envToken = process.env.LEXWARE_API_TOKEN;
+  if (envToken) return envToken;
+
+  // Echo only the default service name — never the resolved `service`, which may
+  // hold a LEXWARE_KEYRING_SERVICE value a user accidentally set to the token.
+  throw new Error(
+    `No Lexware API token found. Provide it via one of:\n` +
+    `  • OS keyring: service "${KEYRING_SERVICE_DEFAULT}", account "${KEYRING_ACCOUNT}" ` +
+    `(set LEXWARE_KEYRING_SERVICE to use a different service name)\n` +
+    `  • Environment variable: LEXWARE_API_TOKEN\n` +
+    `Get your token from https://app.lexware.de/addons/public-api`
+  );
 }
 
 // setTimeout coerces its delay to a 32-bit signed int, so a value above this
@@ -88,12 +105,28 @@ export function parseRetryAfterMs(
   return Math.min(Math.max(dateMs - now, 0), MAX_RETRY_DELAY_MS);
 }
 
-function createClient(): AxiosInstance {
+let tokenPromise: Promise<string> | null = null;
+
+function getToken(): Promise<string> {
+  if (tokenPromise) return tokenPromise;
+  // Single-flight: cache the in-flight Promise so concurrent callers share one
+  // lookup, but clear it on rejection so a transient keyring failure or a
+  // not-yet-set token can be retried without restarting the process.
+  const pending = resolveToken().catch((err) => {
+    if (tokenPromise === pending) tokenPromise = null;
+    throw err;
+  });
+  tokenPromise = pending;
+  return pending;
+}
+
+async function createClient(): Promise<AxiosInstance> {
+  const token = await getToken();
   const client = axios.create({
     baseURL: LEXWARE_API_BASE,
     timeout: REQUEST_TIMEOUT,
     headers: {
-      Authorization: `Bearer ${getToken()}`,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
@@ -128,13 +161,18 @@ function createClient(): AxiosInstance {
   return client;
 }
 
-let clientInstance: AxiosInstance | null = null;
+let clientPromise: Promise<AxiosInstance> | null = null;
 
-function getClient(): AxiosInstance {
-  if (!clientInstance) {
-    clientInstance = createClient();
-  }
-  return clientInstance;
+function getClient(): Promise<AxiosInstance> {
+  if (clientPromise) return clientPromise;
+  // Single-flight, cleared on rejection — see getToken(). createClient() awaits
+  // getToken(), so a token failure rejects (and clears) this promise too.
+  const pending = createClient().catch((err) => {
+    if (clientPromise === pending) clientPromise = null;
+    throw err;
+  });
+  clientPromise = pending;
+  return pending;
 }
 
 function stripUndefined(obj: Record<string, unknown>): Record<string, unknown> {
@@ -239,7 +277,7 @@ export async function lexwareRequest<T = unknown>(
   params?: Record<string, unknown>
 ): Promise<T> {
   try {
-    const client = getClient();
+    const client = await getClient();
     const response = await client.request<T>({
       method,
       url: path,
@@ -258,7 +296,7 @@ export async function lexwareUpload<T = unknown>(
   fileName: string,
   contentType: string
 ): Promise<T> {
-  const client = getClient();
+  const [client, token] = await Promise.all([getClient(), getToken()]);
   // GOTCHA: Dynamic import — won't fail at compile time if form-data is missing, only at runtime.
   const FormData = (await import('form-data')).default;
   const form = new FormData();
@@ -271,7 +309,7 @@ export async function lexwareUpload<T = unknown>(
       data: form,
       headers: {
         ...form.getHeaders(),
-        Authorization: `Bearer ${getToken()}`,
+        Authorization: `Bearer ${token}`,
       },
     });
     return response.data;
@@ -336,7 +374,7 @@ export async function lexwareDownload(
   path: string,
   accept = 'application/pdf'
 ): Promise<{ data: Buffer; contentType: string; fileName?: string }> {
-  const client = getClient();
+  const client = await getClient();
   try {
     const response = await client.request({
       method: 'GET',
