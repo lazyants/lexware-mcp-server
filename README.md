@@ -46,12 +46,39 @@ security add-generic-password -s "lexware-mcp" -a "api-token" -w
 
 #### Windows (PowerShell)
 
-`cmdkey` cannot prompt, so read the token into a variable via a hidden prompt and clear it afterwards:
+`cmdkey` would expand the token into its command line (visible in the process list / EDR / audit logs), so use `CredWrite` instead — it takes the secret in memory, never on the command line. Read the token with a hidden prompt, then store it under the target name `@napi-rs/keyring` reads, `<account>.<service>` (here `api-token.lexware-mcp`; for a custom `LEXWARE_KEYRING_SERVICE`, replace the suffix):
 
 ```powershell
 $secure = Read-Host -AsSecureString "Lexware API token"
-$token = [System.Net.NetworkCredential]::new('', $secure).Password
-cmdkey /generic:lexware-mcp /user:api-token /pass:$token
+$token  = [System.Net.NetworkCredential]::new('', $secure).Password
+
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class LexwareCred {
+  [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)]
+  struct CREDENTIAL {
+    public uint Flags; public uint Type; public string TargetName; public string Comment;
+    public System.Runtime.InteropServices.ComTypes.FILETIME LastWritten;
+    public uint CredentialBlobSize; public IntPtr CredentialBlob; public uint Persist;
+    public uint AttributeCount; public IntPtr Attributes; public string TargetAlias; public string UserName;
+  }
+  [DllImport("advapi32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+  static extern bool CredWriteW(ref CREDENTIAL c, uint flags);
+  public static void Store(string target, string user, string secret) {
+    byte[] blob = System.Text.Encoding.Unicode.GetBytes(secret);
+    IntPtr p = Marshal.AllocHGlobal(blob.Length);
+    Marshal.Copy(blob, 0, p, blob.Length);
+    try {
+      var c = new CREDENTIAL { Type = 1, Persist = 2, TargetName = target,
+        UserName = user, CredentialBlobSize = (uint)blob.Length, CredentialBlob = p };
+      if (!CredWriteW(ref c, 0))
+        throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+    } finally { Marshal.FreeHGlobal(p); }
+  }
+}
+'@
+[LexwareCred]::Store("api-token.lexware-mcp", "api-token", $token)
 Remove-Variable secure, token
 ```
 
