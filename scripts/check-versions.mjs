@@ -6,17 +6,22 @@ import { dirname, resolve } from 'node:path';
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'));
 const srv = JSON.parse(readFileSync(resolve(repoRoot, 'server.json'), 'utf8'));
+const lock = JSON.parse(readFileSync(resolve(repoRoot, 'package-lock.json'), 'utf8'));
 
 const npmVersion = pkg.version;
 const packagesVersion = srv.packages?.[0]?.version;
 const registryVersion = srv.version;
+const lockVersion = lock.version;
+const lockRootPkgVersion = lock.packages?.['']?.version;
 
-if (!npmVersion || !packagesVersion || !registryVersion) {
+if (!npmVersion || !packagesVersion || !registryVersion || !lockVersion || !lockRootPkgVersion) {
   console.error(
     `[check-versions] FAIL: missing version field — ` +
       `package.json#/version=${npmVersion}, ` +
       `server.json#/packages[0].version=${packagesVersion}, ` +
-      `server.json#/version=${registryVersion}.`
+      `server.json#/version=${registryVersion}, ` +
+      `package-lock.json#/version=${lockVersion}, ` +
+      `package-lock.json#/packages[""].version=${lockRootPkgVersion}.`
   );
   process.exit(1);
 }
@@ -31,6 +36,22 @@ if (npmVersion !== packagesVersion) {
   errors.push(
     `package.json#/version (${npmVersion}) !== server.json#/packages[0].version (${packagesVersion}). ` +
       `These must match: the MCP Registry listing references this exact npm version.`
+  );
+}
+
+// HARD: package-lock.json must track package.json#/version at BOTH the root and
+// the root package entry. `npm ci` does NOT catch root-version drift (a lockfile
+// pinned to an old version installs cleanly), so a botched `npm version` bump
+// would otherwise ship a lockfile that disagrees with the package it locks.
+if (lockVersion !== npmVersion) {
+  errors.push(
+    `package-lock.json#/version (${lockVersion}) !== package.json#/version (${npmVersion}). ` +
+      `Re-run \`npm version\` so the lockfile tracks the package version.`
+  );
+}
+if (lockRootPkgVersion !== npmVersion) {
+  errors.push(
+    `package-lock.json#/packages[""].version (${lockRootPkgVersion}) !== package.json#/version (${npmVersion}).`
   );
 }
 
@@ -52,7 +73,7 @@ if (errors.length) {
 }
 
 console.log(
-  `[check-versions] OK — npm=${npmVersion}, packages[0]=${packagesVersion}, registry=${registryVersion}`
+  `[check-versions] OK — npm=${npmVersion}, lock=${lockVersion}, packages[0]=${packagesVersion}, registry=${registryVersion}`
 );
 
 // Semver compare per https://semver.org/spec/v2.0.0.html §11.

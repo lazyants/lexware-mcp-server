@@ -14,10 +14,10 @@ this wrapper.
 
 | Version | Supported |
 | ------- | --------- |
-| 1.x     | ✅        |
+| 4.x     | ✅        |
 
-Older majors are not supported. Once `2.x` is released, `1.x` will receive
-security fixes for at least 6 months.
+Only the current major (`4.x`) receives security fixes. When a new major is
+released, the previous major receives security fixes for at least 6 months.
 
 ## Reporting a vulnerability
 
