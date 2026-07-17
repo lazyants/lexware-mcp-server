@@ -22,7 +22,9 @@ export function registerFileTools(server: McpServer): void {
     },
   }, handleToolRequest(async (params) => {
     const buffer = Buffer.from(params.contentBase64, 'base64');
-    return lexwareUpload('/files', buffer, params.fileName, params.contentType || 'application/pdf');
+    // POST /v1/files requires a type form part; 'voucher' is the only documented
+    // upload type; omitting it → HTTP 400. Not needed on /vouchers/{id}/files.
+    return lexwareUpload('/files', buffer, params.fileName, params.contentType || 'application/pdf', 'voucher');
   }));
 
   server.registerTool('lexware_download_file', {

@@ -12,11 +12,15 @@ export function registerVoucherlistTools(server: McpServer): void {
       ...PaginationParams,
       // GOTCHA: Don't use z.enum() for API filter params — Lexware accepts comma-separated
       // values and has more types than initially documented (e.g. purchaseinvoice, purchasecreditnote).
-      voucherType: z.string().optional().describe(
-        'Voucher type(s), comma-separated or "any". Values: invoice, creditnote, orderconfirmation, quotation, deliverynote, downpaymentinvoice, dunning, purchaseinvoice, purchasecreditnote'
+      // Both filters below use `.default('any')` rather than `.optional()`: the Lexware API
+      // requires both to be present on every request, and the service layer's stripUndefined()
+      // drops omitted keys entirely — so an optional/omitted key would never reach the query
+      // string and the API would 400.
+      voucherType: z.string().default('any').describe(
+        'Voucher type(s), comma-separated, or "any" for no type filter (default). Values: invoice, creditnote, orderconfirmation, quotation, deliverynote, downpaymentinvoice, dunning, purchaseinvoice, purchasecreditnote'
       ),
-      voucherStatus: z.string().optional().describe(
-        'Voucher status(es), comma-separated or "any". Values: draft, open, overdue, paid, paidoff, voided, accepted, rejected, unchecked'
+      voucherStatus: z.string().default('any').describe(
+        'Voucher status(es), comma-separated, or "any" for no status filter (default). Values: draft, open, overdue, paid, paidoff, voided, accepted, rejected, unchecked'
       ),
       contactId: UuidSchema.optional().describe('Filter by contact UUID'),
       voucherDateFrom: z.string().optional().describe('Filter vouchers from date (ISO, e.g. "2024-01-01")'),

@@ -22,30 +22,17 @@ describe('dunnings tool registry', () => {
     mockLexwareDownload.mockReset();
   });
 
-  it('registers exactly the expected 5 dunning tools', async () => {
+  it('registers exactly the expected 4 dunning tools', async () => {
     const tools = await loadAndRegister();
     expect([...tools.keys()].sort()).toEqual([
-      'lexware_create_dunning',
       'lexware_deeplink_dunning',
       'lexware_download_dunning_file',
       'lexware_get_dunning',
       'lexware_pursue_dunning',
     ]);
-  });
-
-  describe('lexware_create_dunning', () => {
-    it('POSTs /dunnings with the body payload', async () => {
-      mockLexwareRequest.mockResolvedValue({ id: 'd-1', version: 1 });
-      const tools = await loadAndRegister();
-      const create = getTool(tools, 'lexware_create_dunning');
-      const body = { voucherDate: '2026-01-01', lineItems: [] };
-      await create.handler({ body });
-      expect(mockLexwareRequest).toHaveBeenCalledExactlyOnceWith(
-        'POST',
-        '/dunnings',
-        body,
-      );
-    });
+    // Regression guard: lexware_create_dunning was removed (#60) because it POSTs
+    // /dunnings with no precedingSalesVoucherId, which the Lexware API requires.
+    expect(tools.has('lexware_create_dunning')).toBe(false);
   });
 
   describe('lexware_get_dunning', () => {

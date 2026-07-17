@@ -1,0 +1,4 @@
+{"version":3,"term":{"cols":80,"rows":24},"timestamp":1784304783,"command":"/private/tmp/claude-501/-Users-moi-lazy-ants-development-mcp/dd49c9d2-f6a7-45a7-9a8d-d0ec8e6d3a5d/scratchpad/live-check.sh","env":{"SHELL":"/bin/zsh"}}
+[0.357, "o", "# lexware #61 live read-check: GET /voucherlist?voucherType=any&voucherStatus=any\r\n# (token supplied via 0600 curl config, not shown; body discarded; status only)\r\n"]
+[0.813, "o", "HTTP_STATUS=200\r\n"]
+[0.001, "x", "0"]

@@ -55,7 +55,7 @@ describe('files tool registry', () => {
         contentType: 'application/pdf',
       });
       expect(mockLexwareUpload).toHaveBeenCalledOnce();
-      const [path, buffer, fileName, contentType] = mockLexwareUpload.mock.calls[0];
+      const [path, buffer, fileName, contentType, uploadType] = mockLexwareUpload.mock.calls[0];
       expect(path).toBe('/files');
       expect(Buffer.isBuffer(buffer)).toBe(true);
       // Asserts the base64 → Buffer decode survives the round-trip — the
@@ -64,6 +64,9 @@ describe('files tool registry', () => {
       expect((buffer as Buffer).toString('utf8')).toBe(original);
       expect(fileName).toBe('mydoc.pdf');
       expect(contentType).toBe('application/pdf');
+      // Regression-catcher for #58: POST /v1/files 400s without a `type` form
+      // part. 'voucher' is the only documented value.
+      expect(uploadType).toBe('voucher');
     });
 
     it('defaults contentType to application/pdf when omitted', async () => {

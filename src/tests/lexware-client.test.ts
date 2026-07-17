@@ -255,6 +255,26 @@ describe('lexware client', () => {
       // FormData headers include content-type with boundary
       expect(callArgs.headers['content-type']).toMatch(/multipart\/form-data/);
     });
+
+    // Regression-catcher for #58: POST /v1/files 400s without a `type` form part.
+    it('adds a `type` form part when uploadType is passed', async () => {
+      mockRequest.mockResolvedValue({ data: { id: 'file-789' } });
+      const { lexwareUpload } = await import('../services/lexware.js');
+      await lexwareUpload('/files', Buffer.from('data'), 'doc.pdf', 'application/pdf', 'voucher');
+      const callArgs = mockRequest.mock.calls[0][0];
+      const serialized = (callArgs.data.getBuffer() as Buffer).toString('utf8');
+      expect(serialized).toMatch(/name="type"\r\n\r\nvoucher\r\n/);
+    });
+
+    // Narrowness guard: /vouchers/{id}/files must NOT get a `type` part.
+    it('omits the `type` form part when uploadType is not passed', async () => {
+      mockRequest.mockResolvedValue({ data: { id: 'file-999' } });
+      const { lexwareUpload } = await import('../services/lexware.js');
+      await lexwareUpload('/vouchers/abc/files', Buffer.from('data'), 'doc.pdf', 'application/pdf');
+      const callArgs = mockRequest.mock.calls[0][0];
+      const serialized = (callArgs.data.getBuffer() as Buffer).toString('utf8');
+      expect(serialized).not.toMatch(/name="type"/);
+    });
   });
 
   // Locks the intentional behaviour change from #51: lexwareUpload/lexwareDownload
