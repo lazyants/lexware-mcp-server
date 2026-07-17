@@ -8,6 +8,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm package: [`@lazyants/lexware-mcp-server`](https://www.npmjs.com/package/@lazyants/lexware-mcp-server)
 - MCP Registry: [`io.github.lazyants/lexware`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.lazyants/lexware)
 
+## [4.1.0] — 2026-07-18
+
+### Added
+
+- `lexware_deeplink_contact` now also returns a `deeplink` key, uniform with the
+  ten other deeplink tools. The original `url` key is retained as a deprecated
+  backward-compat alias equal to `deeplink` and will be removed in the next major
+  (#66).
+- Documentation for the optional `LEXWARE_WEBHOOK_PUBLIC_KEY` environment variable
+  (a PEM public key overriding the auto-fetched webhook-signature key used by
+  `lexware_verify_webhook_signature`) in the README and `.env.example` (#68).
+
+### Changed
+
+- Removed the undocumented `archived` (contacts) and `voucherStatus` (vouchers)
+  query filters that the Lexware API ignores; status filtering remains available
+  via `lexware_list_voucherlist`. The non-strict schemas strip the keys, so a call
+  still passing them returns identical results (#65).
+
+### Fixed
+
+- `lexware_deeplink_down_payment_invoice` now builds the `permalink/invoices/edit/{id}`
+  route — down-payment invoices reuse the invoices permalink per Lexware docs —
+  replacing the dead `permalink/down-payment-invoices/…` path that never resolved
+  (#64).
+
 ## [4.0.0] — 2026-07-17
 
 ### Removed
@@ -316,6 +342,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[4.1.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v4.1.0
 [4.0.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v4.0.0
 [3.2.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.2.1
 [3.2.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.2.0

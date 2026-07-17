@@ -198,7 +198,7 @@ Add to `claude_desktop_config.json`:
 
 Releases ship via the GitHub Release event. Maintainer flow:
 
-1. Bump the version in `package.json` and `server.json` (`npm run check-versions` enforces alignment between `package.json#/version` and `server.json#/packages[0].version`).
+1. Bump the version in `package.json`, `package-lock.json`, and `server.json` (`npm version <x.y.z> --no-git-tag-version` updates the first two together). `npm run check-versions` enforces that `package.json#/version`, `server.json#/packages[0].version`, `server.json#/version`, and both `package-lock.json` version fields (root and `packages[""]`) all agree.
 2. Update `CHANGELOG.md`.
 3. Commit, then `gh release create vX.Y.Z --notes-from-tag` (or write release notes inline).
 4. The `Publish to npm + MCP Registry` workflow runs automatically: it `npm publish`es with provenance, polls the registry until the tarball is available, then pushes the matching `server.json` to the MCP Registry via `mcp-publisher`.
