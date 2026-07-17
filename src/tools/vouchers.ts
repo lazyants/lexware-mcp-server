@@ -63,7 +63,6 @@ export function registerVoucherTools(server: McpServer): void {
     inputSchema: z.object({
       ...PaginationParams,
       voucherNumber: z.string().optional().describe('Filter by voucher number'),
-      voucherStatus: z.string().optional().describe('Filter by voucher status'),
     }),
     annotations: {
       readOnlyHint: true,
@@ -76,7 +75,6 @@ export function registerVoucherTools(server: McpServer): void {
       page: params.page,
       size: params.size,
       voucherNumber: params.voucherNumber,
-      voucherStatus: params.voucherStatus,
     });
   }));
 

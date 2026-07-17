@@ -100,14 +100,14 @@ describe('down-payment-invoices tool registry', () => {
   });
 
   describe('lexware_deeplink_down_payment_invoice', () => {
-    it('returns a /permalink/down-payment-invoices/edit URL without hitting the API', async () => {
+    it('returns a /permalink/invoices/edit URL without hitting the API', async () => {
       const tools = await loadAndRegister();
       const deeplink = getTool(tools, 'lexware_deeplink_down_payment_invoice');
       const result = (await deeplink.handler({ id: 'dpi-9' })) as {
         structuredContent: { deeplink: string };
       };
       expect(result.structuredContent.deeplink).toBe(
-        'https://app.lexware.de/permalink/down-payment-invoices/edit/dpi-9',
+        'https://app.lexware.de/permalink/invoices/edit/dpi-9',
       );
       expect(mockLexwareRequest).not.toHaveBeenCalled();
     });

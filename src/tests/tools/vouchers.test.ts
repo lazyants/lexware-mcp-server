@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { z } from 'zod';
 import { registerAndCapture, getTool, expectRequest } from './_helpers.js';
 
 const { mockLexwareRequest, mockLexwareUpload } = vi.hoisted(() => ({
@@ -112,9 +113,9 @@ describe('vouchers tool registry', () => {
   });
 
   describe('lexware_list_vouchers', () => {
-    it('GETs /vouchers with explicit page/size/voucherNumber/voucherStatus params', async () => {
-      // GOTCHA: This tool hand-picks the four allowed params rather than
-      // spreading `params` — assert all four are forwarded.
+    it('GETs /vouchers with explicit page/size/voucherNumber params', async () => {
+      // GOTCHA: This tool hand-picks the three allowed params rather than
+      // spreading `params` — assert all three are forwarded.
       mockLexwareRequest.mockResolvedValue({ content: [] });
       const tools = await loadAndRegister();
       const list = getTool(tools, 'lexware_list_vouchers');
@@ -122,7 +123,6 @@ describe('vouchers tool registry', () => {
         page: 0,
         size: 100,
         voucherNumber: 'RG-001',
-        voucherStatus: 'open',
       });
       expectRequest(mockLexwareRequest, {
         method: 'GET',
@@ -132,7 +132,6 @@ describe('vouchers tool registry', () => {
           page: 0,
           size: 100,
           voucherNumber: 'RG-001',
-          voucherStatus: 'open',
         },
       });
     });
@@ -150,9 +149,21 @@ describe('vouchers tool registry', () => {
           page: undefined,
           size: undefined,
           voucherNumber: undefined,
-          voucherStatus: undefined,
         },
       );
+    });
+
+    it('no longer exposes the undocumented `voucherStatus` filter (removed in #65 — status filtering lives on /voucherlist)', async () => {
+      const tools = await loadAndRegister();
+      const list = getTool(tools, 'lexware_list_vouchers');
+      const schema = z.object(list.schemaShape as z.ZodRawShape);
+      const jsonSchema = z.toJSONSchema(schema, { io: 'input' }) as {
+        properties?: Record<string, unknown>;
+      };
+      expect(jsonSchema.properties).not.toHaveProperty('voucherStatus');
+      expect(jsonSchema.properties).toHaveProperty('voucherNumber');
+      // Non-strict Zod strips the now-unknown key before it reaches the handler.
+      expect(schema.parse({ voucherStatus: 'open', voucherNumber: 'RG-1' })).not.toHaveProperty('voucherStatus');
     });
   });
 

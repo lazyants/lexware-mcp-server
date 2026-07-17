@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { z } from 'zod';
 import { registerAndCapture, getTool, expectRequest } from './_helpers.js';
 
 const { mockLexwareRequest } = vi.hoisted(() => ({
@@ -44,6 +45,21 @@ describe('contacts tool registry', () => {
         body: undefined,
         params: { page: 0, size: 25, customer: true, name: 'ACME' },
       });
+    });
+
+    it('no longer exposes the undocumented `archived` filter (removed in #65)', async () => {
+      const tools = await loadAndRegister();
+      const list = getTool(tools, 'lexware_list_contacts');
+      const schema = z.object(list.schemaShape as z.ZodRawShape);
+      const jsonSchema = z.toJSONSchema(schema, { io: 'input' }) as {
+        properties?: Record<string, unknown>;
+      };
+      expect(jsonSchema.properties).not.toHaveProperty('archived');
+      expect(Object.keys(jsonSchema.properties ?? {})).toEqual(
+        expect.arrayContaining(['email', 'name', 'number', 'customer', 'vendor']),
+      );
+      // Non-strict Zod strips the now-unknown key before it reaches the handler.
+      expect(schema.parse({ archived: true, name: 'ACME' })).not.toHaveProperty('archived');
     });
 
     it('forwards undefined filters as undefined (services strips them)', async () => {
@@ -133,9 +149,13 @@ describe('contacts tool registry', () => {
       const tools = await loadAndRegister();
       const deeplink = getTool(tools, 'lexware_deeplink_contact');
       const result = (await deeplink.handler({ id: 'c-3' })) as {
-        structuredContent: { url: string };
+        structuredContent: { deeplink: string; url: string };
       };
       // Per Lexware docs: contacts use `view/`, not `edit/`.
+      expect(result.structuredContent.deeplink).toBe(
+        'https://app.lexware.de/permalink/contacts/view/c-3',
+      );
+      // `url` is retained as a deprecated backward-compat alias for `deeplink`.
       expect(result.structuredContent.url).toBe(
         'https://app.lexware.de/permalink/contacts/view/c-3',
       );
