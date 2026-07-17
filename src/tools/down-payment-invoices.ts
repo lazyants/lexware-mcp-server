@@ -59,6 +59,8 @@ export function registerDownPaymentInvoiceTools(server: McpServer): void {
       openWorldHint: false,
     },
   }, handleToolRequest(async (params) => {
-    return { deeplink: `${LEXWARE_APP_BASE}/permalink/down-payment-invoices/edit/${params.id}` };
+    // DPIs deliberately reuse the invoices permalink route — Lexware docs give no
+    // permalink/down-payment-invoices/… route.
+    return { deeplink: `${LEXWARE_APP_BASE}/permalink/invoices/edit/${params.id}` };
   }));
 }

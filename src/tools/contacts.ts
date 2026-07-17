@@ -16,7 +16,6 @@ export function registerContactTools(server: McpServer): void {
       number: z.number().optional().describe('Filter by contact number'),
       customer: z.boolean().optional().describe('Filter for customers'),
       vendor: z.boolean().optional().describe('Filter for vendors'),
-      archived: z.boolean().optional().describe('Filter by archived status'),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   }, handleToolRequest(async (params) => lexwareRequest('GET', '/contacts', undefined, params)));
@@ -57,7 +56,9 @@ export function registerContactTools(server: McpServer): void {
     inputSchema: z.object({ id: UuidSchema.describe('Contact ID') }),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, handleToolRequest(async (params: { id: string }) => {
-    const url = `${LEXWARE_APP_BASE}/permalink/contacts/view/${params.id}`;
-    return { url };
+    // `deeplink` is the uniform key across all deeplink tools. `url` is retained as a
+    // deprecated backward-compat alias (this tool's original key); remove in the next major.
+    const deeplink = `${LEXWARE_APP_BASE}/permalink/contacts/view/${params.id}`;
+    return { deeplink, url: deeplink };
   }));
 }

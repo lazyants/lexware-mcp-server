@@ -30,6 +30,13 @@ export LEXWARE_API_TOKEN=your-token-here
 
 Get a token from the [Lexware Office API settings](https://app.lexware.de/addons/public-api).
 
+Optionally override the webhook-signature public key used by `lexware_verify_webhook_signature`
+(by default fetched from Lexware and cached):
+
+```bash
+export LEXWARE_WEBHOOK_PUBLIC_KEY="$(cat lexware-webhook-public.pem)"
+```
+
 ## Entry Points
 
 | Command | Domains | Tools |
