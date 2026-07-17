@@ -88,6 +88,10 @@ export function parseRetryAfterMs(
   return Math.min(Math.max(dateMs - now, 0), MAX_RETRY_DELAY_MS);
 }
 
+function isStreamBody(data: unknown): boolean {
+  return typeof (data as { pipe?: unknown } | null | undefined)?.pipe === 'function';
+}
+
 function createClient(): AxiosInstance {
   const client = axios.create({
     baseURL: LEXWARE_API_BASE,
@@ -105,6 +109,16 @@ function createClient(): AxiosInstance {
       if (error.response?.status === 429) {
         const config = error.config;
         if (!config) return Promise.reject(error);
+
+        // Retrying a one-shot stream body (form-data upload) re-pipes an already-drained
+        // form: it emits nothing and never ends, so the request hangs until REQUEST_TIMEOUT
+        // and surfaces a bogus "Network error: timeout" masking the real 429. Reject the
+        // original error so the caller gets an honest, formatted rate-limit error. Native/spec
+        // FormData has no .pipe (axios rebuilds its stream per request), so it is not matched.
+        if (isStreamBody(config.data)) {
+          console.error('[lexware-mcp] Rate limited on a one-shot stream body (upload); not retrying — the body cannot be replayed.');
+          return Promise.reject(error);
+        }
 
         const retryCount = ((config as unknown as Record<string, unknown>).__retryCount as number) || 0;
         if (retryCount >= MAX_RETRIES) {
@@ -256,13 +270,17 @@ export async function lexwareUpload<T = unknown>(
   path: string,
   fileBuffer: Buffer,
   fileName: string,
-  contentType: string
+  contentType: string,
+  uploadType?: 'voucher'
 ): Promise<T> {
   const client = getClient();
   // GOTCHA: Dynamic import — won't fail at compile time if form-data is missing, only at runtime.
   const FormData = (await import('form-data')).default;
   const form = new FormData();
   form.append('file', fileBuffer, { filename: fileName, contentType });
+  // POST /v1/files requires a `type` part (400 without it). POST /vouchers/{id}/files
+  // must NOT have one — its documented sample sends the file part alone.
+  if (uploadType) form.append('type', uploadType);
 
   try {
     const response = await client.request<T>({

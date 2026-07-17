@@ -6,7 +6,7 @@ MCP server for the [Lexware Office API](https://developers.lexware.io/docs/). Ma
 
 > **Unofficial — community project.** Not affiliated with, endorsed by, or supported by Lexware GmbH or Haufe Group. "Lexware" and "Lexware Office" are trademarks of their respective owners; used here only to identify the API this client targets (nominative fair use).
 
-**67 tools** across 20 resource domains, with 6 entry points so you can pick the right server for your MCP client's tool limit.
+**66 tools** across 20 resource domains, with 6 entry points so you can pick the right server for your MCP client's tool limit.
 
 ## Installation
 
@@ -34,12 +34,12 @@ Get a token from the [Lexware Office API settings](https://app.lexware.de/addons
 
 | Command | Domains | Tools |
 |---|---|---|
-| `lexware-mcp-server` | All 20 domains | 64 |
-| `lexware-mcp-sales` | Invoices, Credit Notes, Quotations, Order Confirmations, Delivery Notes, Down Payment Invoices, Dunnings, Voucherlist | 33 |
+| `lexware-mcp-server` | All 20 domains | 66 |
+| `lexware-mcp-sales` | Invoices, Credit Notes, Quotations, Order Confirmations, Delivery Notes, Down Payment Invoices, Dunnings, Voucherlist | 32 |
 | `lexware-mcp-contacts` | Contacts, Articles | 10 |
-| `lexware-mcp-bookkeeping` | Vouchers, Voucherlist, Payments | 7 |
+| `lexware-mcp-bookkeeping` | Vouchers, Voucherlist, Payments | 8 |
 | `lexware-mcp-reference` | Countries, Payment Conditions, Posting Categories, Profile, Print Layouts | 5 |
-| `lexware-mcp-system` | Event Subscriptions, Files, Recurring Templates | 10 |
+| `lexware-mcp-system` | Event Subscriptions, Files, Recurring Templates | 12 |
 
 Use split servers to reduce context size — pick only the splits you need.
 
@@ -124,9 +124,9 @@ Add to `claude_desktop_config.json`:
 
 `lexware_get_down_payment_invoice`, `lexware_download_down_payment_invoice_file`, `lexware_deeplink_down_payment_invoice`
 
-### Dunnings (5 tools) — sales
+### Dunnings (4 tools) — sales
 
-`lexware_create_dunning`, `lexware_get_dunning`, `lexware_download_dunning_file`, `lexware_pursue_dunning`, `lexware_deeplink_dunning`
+`lexware_get_dunning`, `lexware_download_dunning_file`, `lexware_pursue_dunning`, `lexware_deeplink_dunning`
 
 ### Voucherlist (1 tool) — sales, bookkeeping
 
@@ -140,9 +140,9 @@ Add to `claude_desktop_config.json`:
 
 `lexware_list_articles`, `lexware_get_article`, `lexware_create_article`, `lexware_update_article`, `lexware_delete_article`
 
-### Vouchers (5 tools) — bookkeeping
+### Vouchers (6 tools) — bookkeeping
 
-`lexware_list_vouchers`, `lexware_get_voucher`, `lexware_create_voucher`, `lexware_update_voucher`, `lexware_upload_voucher_file`
+`lexware_list_vouchers`, `lexware_get_voucher`, `lexware_create_voucher`, `lexware_update_voucher`, `lexware_upload_voucher_file`, `lexware_deeplink_voucher`
 
 ### Payments (1 tool) — bookkeeping
 
@@ -172,20 +172,20 @@ Add to `claude_desktop_config.json`:
 
 `lexware_create_event_subscription`, `lexware_list_event_subscriptions`, `lexware_get_event_subscription`, `lexware_delete_event_subscription`, `lexware_verify_webhook_signature`
 
-### Files (3 tools) — system
+### Files (4 tools) — system
 
-`lexware_upload_file`, `lexware_download_file`, `lexware_get_file_status`
+`lexware_upload_file`, `lexware_download_file`, `lexware_get_file_status`, `lexware_deeplink_file`
 
-### Recurring Templates (2 tools) — system
+### Recurring Templates (3 tools) — system
 
-`lexware_list_recurring_templates`, `lexware_get_recurring_template`
+`lexware_list_recurring_templates`, `lexware_get_recurring_template`, `lexware_deeplink_recurring_template`
 
 ## Security
 
 - **Never commit your API token** to version control
 - Use **read-only** access when you only need to list/get resources
 - **Create, update, and delete tools modify real business data** — invoices, contacts, and accounting records in your Lexware account
-- Rate limiting is handled automatically (exponential backoff on 429)
+- Rate limiting is handled automatically: non-upload requests retry with exponential backoff on 429; file uploads (which use one-shot streams that cannot be safely replayed) surface the original 429 immediately instead of retrying
 
 ## Releasing
 

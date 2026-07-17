@@ -1,0 +1,3 @@
+# lexware #61 live read-check: GET /voucherlist?voucherType=any&voucherStatus=any
+# (token supplied via 0600 curl config, not shown; body discarded; status only)
+HTTP_STATUS=200
