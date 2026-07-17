@@ -12,12 +12,15 @@ this wrapper.
 
 ## Supported versions
 
-| Version | Supported |
-| ------- | --------- |
-| 4.x     | ✅        |
+| Version | Supported                          |
+| ------- | ---------------------------------- |
+| 4.x     | ✅                                 |
+| 3.x     | ✅ security fixes until 2027-01-17 |
 
-Only the current major (`4.x`) receives security fixes. When a new major is
-released, the previous major receives security fixes for at least 6 months.
+The current major (`4.x`) is fully supported. When a new major is released, the
+previous major continues to receive security fixes for at least six months — so
+`3.x` is supported through 2027-01-17, six months after the 4.0.0 release. Majors
+older than the previous one are not supported.
 
 ## Reporting a vulnerability
 
