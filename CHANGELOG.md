@@ -8,6 +8,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm package: [`@lazyants/lexware-mcp-server`](https://www.npmjs.com/package/@lazyants/lexware-mcp-server)
 - MCP Registry: [`io.github.lazyants/lexware`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.lazyants/lexware)
 
+## [4.0.0] — 2026-07-17
+
+### Removed
+
+- **BREAKING:** `lexware_create_dunning`. It `POST`ed `/dunnings` with no
+  `precedingSalesVoucherId` query parameter, which the Lexware API requires for
+  every dunning, so the call could never succeed (#60). Migration: use
+  `lexware_pursue_dunning` (`POST /dunnings?precedingSalesVoucherId={id}`), the
+  only documented way to create a dunning. The full server now exposes 66 tools
+  (was 67); `lexware-mcp-sales` exposes 32 (was 33).
+
+### Fixed
+
+- `lexware_upload_file` now sends the mandatory `type=voucher` multipart form
+  field required by `POST /v1/files`, fixing an HTTP 400 on every standalone
+  file upload (#58). The voucher-attachment path (`POST /vouchers/{id}/files`)
+  is unchanged — that endpoint takes no `type` field.
+- The 429 retry interceptor no longer replays a one-shot `form-data` upload
+  stream. A drained multipart body re-piped on retry emitted nothing and never
+  ended, hanging the request until the request timeout and surfacing a
+  misleading `Network error: timeout` that masked the real rate-limit response;
+  uploads hit by a 429 now reject immediately with the correctly formatted
+  `Lexware API [429]` error (#62). Non-stream (JSON) request bodies retry as
+  before.
+- `lexware_list_voucherlist` now defaults `voucherType` and `voucherStatus` to
+  the `"any"` wildcard instead of omitting them. Both filters are mandatory on
+  the Lexware API and the service layer strips omitted keys before sending, so a
+  parameterless call previously returned HTTP 400 (#61).
+- Parse the `Retry-After` header correctly in the 429 retry backoff (#54,
+  previously merged but never released). The delay was computed as
+  `parseInt(retryAfter, 10) * 1000`, which yields `NaN` for the RFC 7231
+  HTTP-date form (only delta-seconds parse); `setTimeout(NaN)` fires
+  immediately, collapsing the backoff into a tight retry loop against an
+  already rate-limited API. A new `parseRetryAfterMs` accepts both permitted
+  forms — delta-seconds and a strict IMF-fixdate validated by an exact
+  `Date.UTC` round-trip — and every computed delay is clamped to `setTimeout`'s
+  32-bit ceiling so an oversized value can no longer wrap and fire immediately.
+
 ## [3.2.1] — 2026-06-20
 
 ### Security
@@ -278,11 +316,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[4.0.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v4.0.0
+[3.2.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.2.1
 [3.2.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.2.0
 [3.1.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.1.1
 [3.1.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.1.0
 [3.0.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.0.1
 [3.0.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.0.0
+[2.0.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v2.0.1
 [2.0.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v2.0.0
 [1.1.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v1.1.0
 [1.0.2]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v1.0.2
