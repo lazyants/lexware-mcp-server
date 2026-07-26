@@ -88,7 +88,9 @@ describe('vouchers tool registry', () => {
 
     it('surfaces a 429-exhaustion error, and a subsequent retry-success returns data normally', async () => {
       // The 429 retry policy lives in the axios interceptor inside
-      // `services/lexware.ts` (covered in `lexware-client.test.ts`). From
+      // `services/lexware.ts` (covered in `retry-interceptor.test.ts` —
+      // `lexware-client.test.ts` stubs `interceptors.response.use` with a
+      // bare `vi.fn()`, so it never exercises the real interceptor). From
       // the tool's perspective, `lexwareRequest` either resolves with data
       // or rejects after MAX_RETRIES. Both outcomes are exercised here.
       mockLexwareRequest

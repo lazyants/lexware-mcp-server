@@ -1,9 +1,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
+import { lexwareRequest } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
 import { UuidSchema } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
+import { downloadFileResult } from './_download.js';
 
 export function registerDunningTools(server: McpServer): void {
   // NOTE: lexware_create_dunning was removed because dunnings are a chain-terminal
@@ -66,12 +67,7 @@ export function registerDunningTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    const file = await lexwareDownload(`/dunnings/${params.id}/file`);
-    return {
-      fileName: file.fileName || 'dunning.pdf',
-      contentType: file.contentType,
-      contentBase64: file.data.toString('base64'),
-    };
+    return downloadFileResult(`/dunnings/${params.id}/file`, 'dunning.pdf');
   }));
 
   server.registerTool('lexware_deeplink_dunning', {

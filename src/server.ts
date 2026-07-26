@@ -14,3 +14,11 @@ export async function startServer(server: McpServer): Promise<void> {
   await server.connect(transport);
   console.error(`MCP server running on stdio (v${pkg.version})`);
 }
+
+/** Starts the server and exits the process on a fatal startup failure. Shared by every bin entry point. */
+export function runServer(server: McpServer): void {
+  startServer(server).catch((err) => {
+    console.error('Fatal:', err);
+    process.exit(1);
+  });
+}
