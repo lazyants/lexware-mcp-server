@@ -1,0 +1,41 @@
+name: Release drift guard
+
+# Runs on push to main (post-merge visibility), a weekly re-nag so a
+# stranded bump doesn't silently age out of anyone's attention, and
+# workflow_dispatch for on-demand checks. Deliberately NOT wired into
+# `on: pull_request` (that would fail every feature PR by design, since the
+# version bump is always a separate, later PR) and not folded into
+# `check-versions.mjs` (which also runs inside publish-registry.yml's
+# default shallow checkout, where this check cannot run at all).
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1' # weekly Monday 06:00 UTC re-nag
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-drift-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Required and sufficient: fetch-depth: 0 makes actions/checkout's
+          # getRefSpecForAllHistory add the tag refspec unconditionally, so
+          # every tag arrives too. `fetch-tags: true` only matters when
+          # fetch-depth > 0, and that combination yields a grafted history
+          # that breaks `git diff <tag>..HEAD` anyway -- do not add it.
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      # No `npm ci` -- the script is intentionally dependency-free.
+      - name: Check for release drift
+        run: node scripts/check-release-drift.mjs
