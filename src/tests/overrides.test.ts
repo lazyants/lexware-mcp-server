@@ -16,6 +16,20 @@ import { describe, expect, it } from 'vitest';
 // `main` while every PR still showed a stale green check. Refreshing a pin is a
 // one-line edit: each entry below states its floor once and both layers derive
 // from it.
+//
+// SCOPE — what `overrides` can and cannot do. npm honours `overrides` only from
+// the INSTALL ROOT, never from an installed dependency's manifest. So this file
+// guards THIS repository's resolution (and therefore its CI audit gate); it does
+// not by itself dictate what an `npx @lazyants/lexware-mcp-server` consumer gets.
+// Measured from a real `npm pack` + install into an empty project (2026-07-27):
+// consumers resolve hono 4.12.32, fast-uri 3.1.4 and body-parser 2.3.0 — all
+// patched, because the SDK's/express's own ranges already permit the fixed
+// versions — but @hono/node-server 1.19.15, which is NOT patched.
+// That last one cannot be fixed from here: GHSA-frvp-7c67-39w9 covers < 2.0.5,
+// i.e. every 1.x with no 1.x patch, while the SDK declares ^1.19.9. Only an SDK
+// release widening that range fixes it for consumers. Runtime exposure is nil
+// either way (stdio-only; the hono code is never imported), but consumers' own
+// `npm audit` will flag it. Tracked as a follow-up issue.
 
 const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
