@@ -52,10 +52,12 @@
     "zod": "^4.4.0"
   },
   "overrides": {
-    "fast-uri": "^3.1.2",
-    "brace-expansion": "^5.0.6",
-    "hono": "^4.12.25",
-    "qs": "^6.15.2"
+    "fast-uri": "^3.1.4",
+    "brace-expansion": "^5.0.8",
+    "hono": "^4.12.27",
+    "qs": "^6.15.2",
+    "@hono/node-server": "^2.0.10",
+    "body-parser": "^2.3.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
