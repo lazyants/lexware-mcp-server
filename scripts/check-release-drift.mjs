@@ -53,6 +53,16 @@ const SHIPPABLE_PATHSPECS = [
 // first release -- documented here rather than silently assumed.
 const SUSPICIOUS_COMMIT_COUNT_WITH_NO_TAGS = 20;
 
+// What counts as a "release tag". Every tag in this repo is `vN.N.N` today,
+// so an unfiltered `git describe`/`git tag --list` would happen to agree --
+// but unfiltered, a single stray non-release tag (`nightly`, `backup-2026`,
+// a moved tag) would silently become "the last release", and the version
+// recorded there would get compared against as if it meant something. That
+// is a wrong answer, not a loud failure -- exactly the class of bug this
+// script exists to eliminate. Both Mode A's tag lookup and Mode B's tag
+// scan use this same glob so the two modes agree on what a release is.
+const TAG_GLOB = 'v[0-9]*';
+
 function git(args) {
   return execFileSync('git', args, { encoding: 'utf8' }).trim();
 }
@@ -87,7 +97,7 @@ if (git(['rev-parse', '--is-shallow-repository']) === 'true') {
 // --- Locate the last release tag reachable from HEAD --------------------
 let lastTag;
 try {
-  lastTag = git(['describe', '--tags', '--abbrev=0']);
+  lastTag = git(['describe', '--tags', '--abbrev=0', '--match', TAG_GLOB]);
 } catch {
   // --- Guard 2: full-depth clone taken with `--no-tags` ------------------
   // Not caught by guard 1 (verified NOT flagged shallow). A repo this deep
@@ -115,7 +125,7 @@ const taggedVersion = readVersionAt(lastTag);
 // Checked against every tag, not just the latest -- a bump that happens to
 // match an OLDER tag's version is covered by the "out of scope" note above,
 // not by this branch.
-const allTags = git(['tag', '--list']).split('\n').filter(Boolean);
+const allTags = git(['tag', '--list', TAG_GLOB]).split('\n').filter(Boolean);
 const versionIsTagged = allTags.some((tag) => {
   try {
     return readVersionAt(tag) === currentVersion;
