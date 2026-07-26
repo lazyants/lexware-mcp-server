@@ -1,10 +1,17 @@
 import { z } from 'zod';
+import { MAX_PAGE_SIZE } from '../constants.js';
 
 export const UuidSchema = z.string().uuid().describe('Resource UUID');
 
 export const PaginationParams = {
   page: z.number().int().min(0).optional().describe('Page number (0-indexed)'),
-  size: z.number().int().min(1).max(250).optional().describe('Results per page (max 250)'),
+  size: z
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_PAGE_SIZE)
+    .optional()
+    .describe(`Results per page (max ${MAX_PAGE_SIZE})`),
 };
 
 export const VersionParam = {
