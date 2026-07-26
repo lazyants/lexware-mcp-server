@@ -8,6 +8,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm package: [`@lazyants/lexware-mcp-server`](https://www.npmjs.com/package/@lazyants/lexware-mcp-server)
 - MCP Registry: [`io.github.lazyants/lexware`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.lazyants/lexware)
 
+## [4.2.0] — 2026-07-27
+
+### Security
+
+- Refreshed the npm `overrides` pins that had rotted into live advisory ranges,
+  restoring the `npm audit --audit-level=moderate --omit=dev` CI gate: `fast-uri`
+  `^3.1.2` → `^3.1.4` (GHSA-v2hh-gcrm-f6hx, high), `hono` `^4.12.25` → `^4.12.27`,
+  `brace-expansion` `^5.0.6` → `^5.0.8` (GHSA-mh99-v99m-4gvg, high), plus new
+  overrides for `@hono/node-server` `^2.0.10` (GHSA-frvp-7c67-39w9,
+  GHSA-9mqv-5hh9-4cgg) and `body-parser` `^2.3.0` (GHSA-v422-hmwv-36x6). No code
+  changed — later advisories extended the ranges the existing pins resolved into
+  (#80).
+- `lexware_upload_file` and `lexware_upload_voucher_file` now reject a malformed
+  `contentType` instead of passing it into the multipart body. Previously a value
+  containing CR/LF was concatenated verbatim into the part headers (`form-data`
+  escapes the field name and filename but not the content type) (#67).
+- `wrapLexwareError` is now fail-closed and scrubs request/response bodies. It
+  additionally removes `config.data`, `config.params` and the query string of
+  `config.url`, drops `response.data`, and returns a status-only message when full
+  redaction cannot be guaranteed, so a logger walking the chained cause cannot
+  surface submitted PII (#75).
+
+### Added
+
+- A git-aware release-drift guard (`scripts/check-release-drift.mjs` +
+  `.github/workflows/release-drift.yml`) that fails when shippable paths have
+  changed since the last release tag without a version bump, and warns when a
+  version was bumped but never released (#74).
+- A `tools/list` round-trip test locking `required[]` arrays and `.describe()`
+  propagation, guarding the Zod-4 `optin` regression class (#69).
+
+### Fixed
+
+- `Content-Disposition` filenames are no longer truncated at the first space.
+  `filename="Rechnung RE-2026 001.pdf"` previously yielded `Rechnung`. The parser
+  now handles the quoted form with spaces, RFC 5987/8187 `filename*` (with
+  `filename*` taking precedence per RFC 6266), rejects undecodable byte sequences
+  rather than emitting replacement characters, and reduces the result to a
+  sanitized basename (#63).
+- Uploads use Node's global `FormData`/`Blob` instead of the `form-data` package,
+  so an upload body is replayable and a 429 upload is now retried rather than
+  rejected outright (#74).
+
+### Changed
+
+- Test files are no longer compiled into `dist/` or shipped to npm consumers. The
+  published tarball drops from 214 files to 109; type-checking of tests is
+  retained via a full-project `tsc --noEmit` in `build` (#86).
+- Deduplicated the eight identical download handlers behind a shared
+  `downloadFileResult()`, replaced six copies of the fatal-catch boot line with
+  `runServer()`, and made the per-entry tool counts in `smoke.test.ts` consume the
+  same registrar arrays the binaries do, so the count test is a real drift guard
+  (#69).
+
+### Removed
+
+- 20 unreferenced modules under `src/types/` plus the unused `LexwarePagedResponse`
+  and `LexwareCreationResponse` exports, and the dead `DEFAULT_PAGE_SIZE` constant
+  (`MAX_PAGE_SIZE` now backs the pagination schema) (#69).
+
 ## [4.1.0] — 2026-07-18
 
 ### Added
@@ -342,6 +402,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[4.2.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v4.2.0
 [4.1.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v4.1.0
 [4.0.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v4.0.0
 [3.2.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v3.2.1

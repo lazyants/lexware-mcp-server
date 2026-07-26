@@ -224,7 +224,7 @@ describe('lexware client', () => {
   });
 
   describe('lexwareUpload', () => {
-    it('sends POST with FormData body and returns response data', async () => {
+    it('sends POST with a spec-compliant (replayable) FormData body and returns response data', async () => {
       mockRequest.mockResolvedValue({ data: { id: 'file-123' } });
       const { lexwareUpload } = await import('../services/lexware.js');
       const fileBuffer = Buffer.from('test-content');
@@ -235,14 +235,17 @@ describe('lexware client', () => {
           url: '/files',
         })
       );
-      // Verify FormData was sent as data
+      // Verify a native (not `form-data`-package) FormData was sent as data.
       const callArgs = mockRequest.mock.calls[0][0];
-      expect(callArgs.data).toBeDefined();
-      expect(typeof callArgs.data.getHeaders).toBe('function');
+      expect(callArgs.data).toBeInstanceOf(FormData);
+      const filePart = callArgs.data.get('file') as File;
+      expect(filePart.name).toBe('test.pdf');
+      expect(filePart.type).toBe('application/pdf');
+      expect(await filePart.text()).toBe('test-content');
       expect(result).toEqual({ id: 'file-123' });
     });
 
-    it('includes correct headers from FormData', async () => {
+    it('sets Content-Type: multipart/form-data explicitly and keeps the body a replayable FormData', async () => {
       mockRequest.mockResolvedValue({ data: { id: 'file-456' } });
       const { lexwareUpload } = await import('../services/lexware.js');
       await lexwareUpload('/files', Buffer.from('data'), 'doc.pdf', 'application/pdf');
@@ -252,8 +255,13 @@ describe('lexware client', () => {
           Authorization: 'Bearer test-token',
         })
       );
-      // FormData headers include content-type with boundary
-      expect(callArgs.headers['content-type']).toMatch(/multipart\/form-data/);
+      // The client default is `application/json`; without this explicit override
+      // axios's transformRequest would JSON-stringify the form and drop the file bytes.
+      expect(callArgs.headers['Content-Type']).toBe('multipart/form-data');
+      // Native FormData has no .pipe — the one-shot-stream retry guard (isStreamBody)
+      // must not match it.
+      expect(callArgs.data).toBeInstanceOf(FormData);
+      expect(typeof (callArgs.data as { pipe?: unknown }).pipe).toBe('undefined');
     });
 
     // Regression-catcher for #58: POST /v1/files 400s without a `type` form part.
@@ -262,8 +270,7 @@ describe('lexware client', () => {
       const { lexwareUpload } = await import('../services/lexware.js');
       await lexwareUpload('/files', Buffer.from('data'), 'doc.pdf', 'application/pdf', 'voucher');
       const callArgs = mockRequest.mock.calls[0][0];
-      const serialized = (callArgs.data.getBuffer() as Buffer).toString('utf8');
-      expect(serialized).toMatch(/name="type"\r\n\r\nvoucher\r\n/);
+      expect(callArgs.data.get('type')).toBe('voucher');
     });
 
     // Narrowness guard: /vouchers/{id}/files must NOT get a `type` part.
@@ -272,8 +279,7 @@ describe('lexware client', () => {
       const { lexwareUpload } = await import('../services/lexware.js');
       await lexwareUpload('/vouchers/abc/files', Buffer.from('data'), 'doc.pdf', 'application/pdf');
       const callArgs = mockRequest.mock.calls[0][0];
-      const serialized = (callArgs.data.getBuffer() as Buffer).toString('utf8');
-      expect(serialized).not.toMatch(/name="type"/);
+      expect(callArgs.data.get('type')).toBeNull();
     });
   });
 

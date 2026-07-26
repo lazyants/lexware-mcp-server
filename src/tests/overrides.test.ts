@@ -125,11 +125,13 @@ const PINS: Pin[] = [
     declaredIn: 'overrides',
   },
   {
-    // Patched by raising the direct dependency rather than by an override.
+    // No longer a direct dependency (native FormData/Blob replaced it — #74.1), but
+    // axios@1.18.x itself declares "form-data": "^4.0.5" — one patch below this floor
+    // — so the override remains the only thing enforcing it.
     name: 'form-data',
     floor: '4.0.6',
     advisory: 'GHSA-hmw2-7cc7-3qxx CRLF injection',
-    declaredIn: 'dependencies',
+    declaredIn: 'overrides',
   },
 ];
 

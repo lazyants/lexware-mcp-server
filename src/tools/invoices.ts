@@ -1,9 +1,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
+import { lexwareRequest } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
 import { UuidSchema, DownloadFormat, downloadAccept, downloadFallbackName } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
+import { downloadFileResult } from './_download.js';
 
 export function registerInvoiceTools(server: McpServer): void {
   server.registerTool('lexware_create_invoice', {
@@ -68,12 +69,11 @@ export function registerInvoiceTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    const file = await lexwareDownload(`/invoices/${params.id}/file`, downloadAccept(params.format));
-    return {
-      fileName: file.fileName || downloadFallbackName('invoice', file.contentType),
-      contentType: file.contentType,
-      contentBase64: file.data.toString('base64'),
-    };
+    return downloadFileResult(
+      `/invoices/${params.id}/file`,
+      (contentType) => downloadFallbackName('invoice', contentType),
+      downloadAccept(params.format),
+    );
   }));
 
   // NOTE: A `lexware_finalize_invoice` tool was removed in 2026-05 because the Lexware

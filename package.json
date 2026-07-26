@@ -1,6 +1,6 @@
 {
   "name": "@lazyants/lexware-mcp-server",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "description": "MCP server for the Lexware Office API — manage invoices, contacts, articles, vouchers, and more",
   "type": "module",
   "main": "dist/index.js",
@@ -14,7 +14,7 @@
     "lexware-mcp-system": "dist/entry-system.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json && tsc --noEmit",
     "start": "node dist/index.js",
     "test": "vitest run",
     "lint": "eslint .",
@@ -48,7 +48,6 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "axios": "^1.16.0",
-    "form-data": "^4.0.6",
     "zod": "^4.4.0"
   },
   "overrides": {
@@ -57,7 +56,8 @@
     "hono": "^4.12.27",
     "qs": "^6.15.2",
     "@hono/node-server": "^2.0.10",
-    "body-parser": "^2.3.0"
+    "body-parser": "^2.3.0",
+    "form-data": "^4.0.6"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

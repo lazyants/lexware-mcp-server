@@ -1,9 +1,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
+import { lexwareRequest } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
 import { UuidSchema, DownloadFormat, downloadAccept, downloadFallbackName } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
+import { downloadFileResult } from './_download.js';
 
 export function registerDownPaymentInvoiceTools(server: McpServer): void {
   server.registerTool('lexware_get_down_payment_invoice', {
@@ -38,12 +39,11 @@ export function registerDownPaymentInvoiceTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    const file = await lexwareDownload(`/down-payment-invoices/${params.id}/file`, downloadAccept(params.format));
-    return {
-      fileName: file.fileName || downloadFallbackName('down-payment-invoice', file.contentType),
-      contentType: file.contentType,
-      contentBase64: file.data.toString('base64'),
-    };
+    return downloadFileResult(
+      `/down-payment-invoices/${params.id}/file`,
+      (contentType) => downloadFallbackName('down-payment-invoice', contentType),
+      downloadAccept(params.format),
+    );
   }));
 
   server.registerTool('lexware_deeplink_down_payment_invoice', {
