@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import util from 'node:util';
 import { AxiosError, AxiosHeaders } from 'axios';
-import { wrapLexwareError } from '../services/lexware.js';
+import { wrapLexwareError, sanitizeAxiosError } from '../services/lexware.js';
 
 // Distinctive sentinel: if this string survives anywhere in a chained/serialized
 // error, the bearer token would have leaked into a logger walking the cause.
@@ -133,5 +133,70 @@ describe('wrapLexwareError token redaction', () => {
   it('returns a non-Axios error unchanged', () => {
     const plain = new Error('plain');
     expect(wrapLexwareError(plain)).toBe(plain);
+  });
+
+  // #75: config.data and config.params are broad-spectrum leak surfaces too — the
+  // request body the caller already sent, and query params/filters — not just auth.
+  it('scrubs config.data, config.params, and the query string on config.url (regression #75)', () => {
+    const err = makeAxiosError({
+      withResponse: { status: 400, statusText: 'Bad Request', data: { message: 'x', status: 400 } },
+    });
+    const sensitiveBody = { secret: 'do-not-leak-body' };
+    const sensitiveParams = { search: 'do-not-leak-params' };
+    (err.config as unknown as Record<string, unknown>).data = sensitiveBody;
+    (err.config as unknown as Record<string, unknown>).params = sensitiveParams;
+    (err.config as unknown as Record<string, unknown>).url = '/contacts?name=do-not-leak-url';
+
+    const wrapped = wrapLexwareError(err);
+    const inspected = util.inspect(wrapped, { depth: null });
+    expect(inspected).not.toContain('do-not-leak-body');
+    expect(inspected).not.toContain('do-not-leak-params');
+    expect(inspected).not.toContain('do-not-leak-url');
+
+    const cause = (wrapped as Error).cause as AxiosError;
+    expect((cause.config as unknown as Record<string, unknown>).data).toBeUndefined();
+    expect((cause.config as unknown as Record<string, unknown>).params).toBeUndefined();
+    expect(cause.config?.url).toBe('/contacts?[REDACTED]');
+  });
+
+  describe('fail-closed sanitization (#75)', () => {
+    it('sanitizeAxiosError returns true for a normal, unfrozen error', () => {
+      const err = makeAxiosError({
+        withResponse: { status: 400, statusText: 'Bad Request', data: { message: 'x', status: 400 } },
+      });
+      expect(sanitizeAxiosError(err)).toBe(true);
+    });
+
+    // §1.3(e): a frozen config.headers makes scrubConfig's very first statement
+    // throw. Before the fail-closed change, that left err.request's raw _header
+    // block (carrying the bearer token) undeleted — a real leak the moment any
+    // caller chains or deep-logs the error. Now the whole error, not just headers,
+    // must be withheld.
+    it('does not chain the original error, and reports only the status, when scrubbing throws on a frozen config', () => {
+      const err = makeAxiosError({
+        withResponse: {
+          status: 503,
+          statusText: 'Service Unavailable',
+          data: { message: 'x', status: 503 },
+        },
+      });
+      Object.freeze(err.config?.headers);
+
+      expect(sanitizeAxiosError(err)).toBe(false);
+
+      const wrapped = wrapLexwareError(err) as Error;
+      expect(wrapped.message).toContain('503');
+      expect(wrapped.cause).toBeUndefined();
+      expect(util.inspect(wrapped, { depth: null })).not.toContain(TOKEN);
+    });
+
+    it('omits the status from the message when the frozen error has no response', () => {
+      const err = makeAxiosError({});
+      Object.freeze(err.config?.headers);
+
+      const wrapped = wrapLexwareError(err) as Error;
+      expect(wrapped.cause).toBeUndefined();
+      expect(util.inspect(wrapped, { depth: null })).not.toContain(TOKEN);
+    });
   });
 });

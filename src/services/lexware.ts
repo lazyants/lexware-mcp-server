@@ -206,41 +206,85 @@ function scrubAuth(headers: unknown): void {
   }
 }
 
-// Scrub every credential-bearing field on a request/response config: headers plus
-// basic-auth `auth` and `proxy.auth`. Lexware sets none of the latter today, but a
-// central sanitizer should not depend on that.
+// Scrub every credential-bearing field on a request/response config: headers,
+// basic-auth `auth` and `proxy.auth`, the request body (#75 — it's what the caller
+// already sent, so dropping it from a chained error costs nothing diagnostically),
+// and any query string (params object + the `?...` tail of `url`, which can carry
+// PII/search terms across every one of this server's ~66 tools, not just auth).
 function scrubConfig(config: unknown): void {
   if (!config || typeof config !== 'object') return;
-  const c = config as { headers?: unknown; auth?: unknown; proxy?: { auth?: unknown } | null };
+  const c = config as {
+    headers?: unknown;
+    auth?: unknown;
+    proxy?: { auth?: unknown } | null;
+    data?: unknown;
+    params?: unknown;
+    url?: unknown;
+  };
   scrubAuth(c.headers);
   delete c.auth;
   if (c.proxy && typeof c.proxy === 'object') delete c.proxy.auth;
+  delete c.data;
+  delete c.params;
+  if (typeof c.url === 'string') {
+    const qIndex = c.url.indexOf('?');
+    if (qIndex !== -1) c.url = c.url.slice(0, qIndex) + '?[REDACTED]';
+  }
 }
 
-// Void mutator: strip the bearer token (LEXWARE_API_TOKEN) from an AxiosError
-// before it is chained via `{ cause: err }`, so a logger walking the cause with
-// `util.inspect(err, { depth: null })` or `AxiosError.toJSON()` cannot surface it.
-// `config.headers` AND Node's `request._header` raw block both carry the token.
-// Mutating up front (rather than building a fresh cause) keeps the literal caught
-// binding available for `{ cause: err }`, satisfying eslint preserve-caught-error.
-function sanitizeAxiosError(err: AxiosError): void {
-  scrubConfig(err.config);
-  scrubConfig(err.response?.config); // may be a distinct ref depending on the adapter
-  delete (err as { request?: unknown }).request;
-  if (err.response) delete (err.response as { request?: unknown }).request;
-  // Defensive: an AxiosError that already chained an object cause could carry its
-  // own config/request — drop it before we re-chain err.
-  const e = err as { cause?: unknown };
-  if (e.cause && typeof e.cause === 'object') delete e.cause;
+// Strip the bearer token (LEXWARE_API_TOKEN) and every other credential-bearing
+// field from an AxiosError before it is chained via `{ cause: err }`, so a logger
+// walking the cause with `util.inspect(err, { depth: null })` or
+// `AxiosError.toJSON()` cannot surface it. `config.headers` AND Node's
+// `request._header` raw block both carry the token. Mutating up front (rather
+// than building a fresh cause) keeps the literal caught binding available for
+// `{ cause: err }`, satisfying eslint preserve-caught-error.
+//
+// Fail-closed by design (#75): the whole body runs inside one try/catch and
+// returns whether the redaction can be trusted as COMPLETE. A frozen config (or
+// a frozen `AxiosHeaders` whose `.delete()` throws) can make any one of these
+// mutations throw partway through — rather than chase every possible mutation
+// site, a single catch here reports `false` and lets the caller (wrapLexwareError)
+// decide not to expose `err` at all, instead of risking a half-scrubbed error
+// that still carries `err.request`'s raw `_header` block with the bearer token.
+export function sanitizeAxiosError(err: AxiosError): boolean {
+  try {
+    scrubConfig(err.config);
+    scrubConfig(err.response?.config); // may be a distinct ref depending on the adapter
+    delete (err as { request?: unknown }).request;
+    if (err.response) delete (err.response as { request?: unknown }).request;
+    // Defensive: an AxiosError that already chained an object cause could carry its
+    // own config/request — drop it before we re-chain err.
+    const e = err as { cause?: unknown };
+    if (e.cause && typeof e.cause === 'object') delete e.cause;
+    return true;
+  } catch {
+    return false;
+  }
 }
+
+// Message for the fail-closed path: sanitizeAxiosError could not guarantee every
+// credential was scrubbed (an exception partway through — e.g. a frozen response).
+// Rather than try to neutralize the untrusted AxiosError surface-by-surface, `err`
+// is never referenced beyond its already-known, non-sensitive status code: nothing
+// hostile can survive if nothing hostile is included.
+const UNCERTAIN_SANITIZATION_MESSAGE = 'response redacted — could not be fully sanitized';
 
 // Single sanitized throw path for every axios call site. Mirrors the historical
 // lexwareRequest branches exactly so thrown messages don't drift: a response →
 // formatted API error; a network code → "Network error"; anything else → the
 // (now sanitized) raw error rethrown as before.
+//
+// Fail-closed (#75): when sanitizeAxiosError cannot guarantee full redaction, `err`
+// is NOT chained as `cause` and none of its fields are read beyond the status code.
 export function wrapLexwareError(err: unknown): unknown {
   if (!(err instanceof AxiosError)) return err;
-  sanitizeAxiosError(err);
+  const fullySanitized = sanitizeAxiosError(err);
+  if (!fullySanitized) {
+    const status = err.response?.status;
+    const label = status !== undefined ? ` ${status}` : '';
+    return new Error(`Lexware API error${label}: [${UNCERTAIN_SANITIZATION_MESSAGE}]`);
+  }
   if (err.response) return formatError(err);
   if (err.code) return new Error(`Network error: ${err.message}`, { cause: err });
   return err;
@@ -266,6 +310,30 @@ export async function lexwareRequest<T = unknown>(
   }
 }
 
+// Parameter-tolerant MIME `type/subtype[; params]` grammar (#67). Rejects any CR/LF
+// anywhere after the slash — that is the actual injection sink: `form-data`'s
+// `_getContentType` writes `contentType` into the multipart part header VERBATIM
+// (it escapes the field name and filename via `escapeHeaderParam`, but not this
+// value — §1.3a). A STRICT `type/subtype` regex would also reject legitimate
+// values the sink itself accepts (e.g. `application/pdf; charset=utf-8` — the
+// Blob constructor's own `type` normalization is an ASCII-printable-range filter,
+// not a MIME grammar validator — §1.3b), so the parameter tail is deliberately
+// permissive; only `\r`/`\n` inside it is rejected. The `[^\r\n]` is what actually
+// closes the hole.
+const MIME_TYPE_RE = /^[A-Za-z0-9!#$%&'*+.^_`|~-]+\/[A-Za-z0-9!#$%&'*+.^_`|~-]+(;[^\r\n]*)?$/;
+
+// Reject a malformed upload contentType before it reaches the multipart part —
+// never silently strip it, which would hide the caller's error. Post-migration to
+// native FormData/Blob (below), the sink would otherwise degrade a malformed value
+// silently to `application/octet-stream` (Blob blanks any `type` containing a char
+// outside U+0020–U+007E rather than throwing — §1.3b) instead of failing loudly, so
+// this guard is what actually surfaces the caller's mistake.
+function assertValidMimeType(contentType: string): void {
+  if (!MIME_TYPE_RE.test(contentType)) {
+    throw new Error(`Invalid contentType for upload: ${JSON.stringify(contentType)}`);
+  }
+}
+
 export async function lexwareUpload<T = unknown>(
   path: string,
   fileBuffer: Buffer,
@@ -274,10 +342,18 @@ export async function lexwareUpload<T = unknown>(
   uploadType?: 'voucher'
 ): Promise<T> {
   const client = getClient();
-  // GOTCHA: Dynamic import — won't fail at compile time if form-data is missing, only at runtime.
-  const FormData = (await import('form-data')).default;
+  assertValidMimeType(contentType);
+
+  // Node 20+ global FormData/Blob (#74.1): unlike the old `form-data` package, this
+  // produces a REPLAYABLE body — axios rebuilds a fresh multipart stream from it on
+  // every attempt (§1.3c), so a 429 upload can now be retried instead of hanging
+  // until timeout under the isStreamBody guard.
   const form = new FormData();
-  form.append('file', fileBuffer, { filename: fileName, contentType });
+  // @types/node types Buffer as Uint8Array<ArrayBufferLike>, but BlobPart requires
+  // ArrayBufferView<ArrayBuffer>. A Buffer.from(...) is never SharedArrayBuffer-backed,
+  // so this cast is safe — without it: TS2322.
+  const filePart = new Blob([fileBuffer as Uint8Array<ArrayBuffer>], { type: contentType });
+  form.append('file', filePart, fileName);
   // POST /v1/files requires a `type` part (400 without it). POST /vouchers/{id}/files
   // must NOT have one — its documented sample sends the file part alone.
   if (uploadType) form.append('type', uploadType);
@@ -288,7 +364,11 @@ export async function lexwareUpload<T = unknown>(
       url: path,
       data: form,
       headers: {
-        ...form.getHeaders(),
+        // MUST override the client default `application/json` set in createClient():
+        // axios's transformRequest JSON-stringifies a FormData body whenever the
+        // Content-Type contains "application/json", silently dropping the file
+        // bytes. The boundary itself is filled in by the http adapter.
+        'Content-Type': 'multipart/form-data',
         Authorization: `Bearer ${getToken()}`,
       },
     });
@@ -350,6 +430,106 @@ export function __resetWebhookKeyCache(): void {
   webhookKeyCache = null;
 }
 
+// --- Content-Disposition filename parsing (#63) --------------------------------
+//
+// Deliberately not a full parameter tokenizer — three anchored regexes, not a
+// grammar. Two known, accepted limitations, both intentional and covered by tests:
+//   (i) a `;` inside ANOTHER parameter's quoted value re-opens the `(?:^|;)`
+//       anchor, e.g. `attachment; foo="a; filename=evil.pdf"` yields `evil.pdf`.
+//       The prior code had the identical weakness; harmless because the result is
+//       sanitized below regardless of which parameter "won".
+//  (ii) RFC 2231 continuations (`filename*0*=…; filename*1*=…`) are unsupported
+//       and fall back to the plain `filename` (or the caller's static default).
+const FILENAME_STAR_RE = /(?:^|;)\s*filename\*\s*=\s*([^;]+)/i;
+const FILENAME_TOKEN_OR_QUOTED_RE = /(?:^|;)\s*filename\s*=\s*(?:"((?:[^"\\]|\\.)*)"|([^;"\s]+))/i;
+
+function unescapeQuoted(value: string): string {
+  return value.replace(/\\(.)/g, '$1');
+}
+
+// Decode an RFC 5987/8187 ext-value: `charset ' language-tag ' value`. Percent-decode
+// BYTE-WISE (not decodeURIComponent, which assumes UTF-8 and throws on a stray
+// %-escape from another charset), then decode as the declared charset. Returns null
+// — so the caller falls through to the plain `filename` — for an unrecognized/
+// unsupported charset, a malformed %-escape, or (UTF-8 only) undecodable bytes:
+// `Buffer`-style lossy decoding would substitute U+FFFD instead of failing, so this
+// uses `TextDecoder('utf-8', { fatal: true })` specifically to reject those bytes
+// rather than silently emit "<63>xEF__.pdf".
+function decodeExtValue(raw: string): string | null {
+  const m = /^([^']*)'[^']*'(.*)$/.exec(raw.trim());
+  if (!m) return null;
+  const charset = m[1].toLowerCase();
+  const encoded = m[2];
+  if (charset !== 'utf-8' && charset !== 'iso-8859-1') return null;
+
+  const bytes: number[] = [];
+  for (let i = 0; i < encoded.length; i++) {
+    const ch = encoded[i];
+    if (ch === '%' && i + 2 < encoded.length) {
+      const byte = Number.parseInt(encoded.slice(i + 1, i + 3), 16);
+      if (Number.isNaN(byte)) return null; // malformed %-escape
+      bytes.push(byte);
+      i += 2;
+    } else {
+      const code = ch.codePointAt(0) as number;
+      if (code > 0xff) return null; // not a valid single octet in this grammar
+      bytes.push(code);
+    }
+  }
+
+  if (charset === 'iso-8859-1') {
+    return bytes.map((b) => String.fromCharCode(b)).join('');
+  }
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(bytes));
+  } catch {
+    return null; // undecodable bytes -> fall through, same as an unknown charset
+  }
+}
+
+// Sanitize a filename recovered from an untrusted header before it is handed back
+// to an MCP client, which typically uses it verbatim when saving the payload to
+// disk (this repo never does — grepped). Takes the last path segment (defuses any
+// embedded directory component), drops C0 controls + DEL by CODE POINT — not a
+// regex character class, which eslint's no-control-regex rule rejects — caps at
+// 255 CODE POINTS via Array.from (a naive .slice(0, 255) can split a surrogate
+// pair), and rejects '', '.', '..' so the caller's static fallback applies instead
+// of a filesystem-meaningful non-name.
+function sanitizeFileName(raw: string): string | undefined {
+  const lastSegment = raw.split(/[/\\]/).pop() ?? '';
+  const codePoints = Array.from(lastSegment).filter((ch) => {
+    const code = ch.codePointAt(0) as number;
+    return !(code <= 0x1f || code === 0x7f);
+  });
+  const cleaned = codePoints.slice(0, 255).join('');
+  if (cleaned === '' || cleaned === '.' || cleaned === '..') return undefined;
+  return cleaned;
+}
+
+// Parse a Content-Disposition header for a filename per RFC 6266, preferring the
+// RFC 5987/8187 extended `filename*=` form over the plain `filename=` form when
+// both are present (RFC 6266 §4.3) — the prior code had no support for `filename*`
+// at all (a literal `=` right after `filename` never matches `filename*=`, so it
+// simply produced no match, not a mis-capture). Returns undefined when neither form
+// is present/decodable, or the recovered name is empty/'.'/'..' after sanitizing —
+// the caller's static default applies in that case.
+export function parseContentDispositionFileName(header: string): string | undefined {
+  const starMatch = FILENAME_STAR_RE.exec(header);
+  if (starMatch) {
+    const decoded = decodeExtValue(starMatch[1].trim());
+    if (decoded !== null) {
+      const sanitized = sanitizeFileName(decoded);
+      if (sanitized !== undefined) return sanitized;
+    }
+    // Undecodable/unsupported filename* -> fall through to the plain form below.
+  }
+
+  const tokenMatch = FILENAME_TOKEN_OR_QUOTED_RE.exec(header);
+  if (!tokenMatch) return undefined;
+  const raw = tokenMatch[1] !== undefined ? unescapeQuoted(tokenMatch[1]) : (tokenMatch[2] as string);
+  return sanitizeFileName(raw);
+}
+
 export async function lexwareDownload(
   path: string,
   accept = 'application/pdf'
@@ -366,11 +546,9 @@ export async function lexwareDownload(
     });
 
     const contentDisposition = response.headers['content-disposition'] as string | undefined;
-    let fileName: string | undefined;
-    if (contentDisposition) {
-      const match = contentDisposition.match(/filename="?([^";\s]+)"?/);
-      if (match) fileName = match[1];
-    }
+    const fileName = contentDisposition
+      ? parseContentDispositionFileName(contentDisposition)
+      : undefined;
 
     return {
       data: Buffer.from(response.data as ArrayBuffer),
