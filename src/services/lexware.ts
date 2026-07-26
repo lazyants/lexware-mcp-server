@@ -285,7 +285,16 @@ export function wrapLexwareError(err: unknown): unknown {
     const label = status !== undefined ? ` ${status}` : '';
     return new Error(`Lexware API error${label}: [${UNCERTAIN_SANITIZATION_MESSAGE}]`);
   }
-  if (err.response) return formatError(err);
+  if (err.response) {
+    const formatted = formatError(err); // reads err.response.data to build the message text
+    // #75: the response BODY itself is a leak surface — it can carry an echoed
+    // request field, an internal value, or other PII the caller never sent — and
+    // sanitizeAxiosError above never touches it (deliberately: formatError needs it
+    // first). Drop it now, after the message text has already been derived from it,
+    // so it cannot survive into `formatted`'s chained `cause`.
+    delete (err.response as { data?: unknown }).data;
+    return formatted;
+  }
   if (err.code) return new Error(`Network error: ${err.message}`, { cause: err });
   return err;
 }
@@ -310,17 +319,22 @@ export async function lexwareRequest<T = unknown>(
   }
 }
 
-// Parameter-tolerant MIME `type/subtype[; params]` grammar (#67). Rejects any CR/LF
-// anywhere after the slash — that is the actual injection sink: `form-data`'s
+// Parameter-tolerant MIME `type/subtype[; params]` grammar (#67). A STRICT
+// `type/subtype` regex would reject legitimate values the sink itself accepts
+// (e.g. `application/pdf; charset=utf-8`), so the parameter tail is deliberately
+// permissive about STRUCTURE — but every character in it is constrained to the
+// printable-ASCII range 0x20-0x7E, not merely "not CR/LF". Two reasons the tail
+// can't just exclude `\r`/`\n`: (1) that is the actual injection sink — `form-data`'s
 // `_getContentType` writes `contentType` into the multipart part header VERBATIM
 // (it escapes the field name and filename via `escapeHeaderParam`, but not this
-// value — §1.3a). A STRICT `type/subtype` regex would also reject legitimate
-// values the sink itself accepts (e.g. `application/pdf; charset=utf-8` — the
-// Blob constructor's own `type` normalization is an ASCII-printable-range filter,
-// not a MIME grammar validator — §1.3b), so the parameter tail is deliberately
-// permissive; only `\r`/`\n` inside it is rejected. The `[^\r\n]` is what actually
-// closes the hole.
-const MIME_TYPE_RE = /^[A-Za-z0-9!#$%&'*+.^_`|~-]+\/[A-Za-z0-9!#$%&'*+.^_`|~-]+(;[^\r\n]*)?$/;
+// value — §1.3a) — and a tab/NUL/other control byte is just as injectable as CR/LF
+// in a raw header block; (2) post-migration, the Blob constructor's own `type`
+// normalization blanks the ENTIRE type to "" on ANY character outside
+// 0x20-0x7E (§1.3b), not just CR/LF, so a narrower guard would let through values
+// that still silently degrade to `application/octet-stream` — recreating the exact
+// failure this guard exists to prevent. Matching Blob's own filter range exactly is
+// what closes that gap.
+const MIME_TYPE_RE = /^[A-Za-z0-9!#$%&'*+.^_`|~-]+\/[A-Za-z0-9!#$%&'*+.^_`|~-]+(;[\x20-\x7E]*)?$/;
 
 // Reject a malformed upload contentType before it reaches the multipart part —
 // never silently strip it, which would hide the caller's error. Post-migration to
@@ -465,10 +479,17 @@ function decodeExtValue(raw: string): string | null {
   const bytes: number[] = [];
   for (let i = 0; i < encoded.length; i++) {
     const ch = encoded[i];
-    if (ch === '%' && i + 2 < encoded.length) {
-      const byte = Number.parseInt(encoded.slice(i + 1, i + 3), 16);
-      if (Number.isNaN(byte)) return null; // malformed %-escape
-      bytes.push(byte);
+    if (ch === '%') {
+      // Number.parseInt is a lenient PARSER, not a validator — parseInt('2G', 16)
+      // returns 2 rather than NaN, and a `%` with fewer than two characters left
+      // (a truncated escape at the end of the string) would otherwise fall through
+      // to the plain-character branch below and be kept as a literal '%'. Requiring
+      // an exact two-hex-digit match up front rejects both: a malformed escape
+      // must fall through to the plain `filename`, never silently mis-decode or
+      // pass a literal '%' through.
+      const hex = encoded.slice(i + 1, i + 3);
+      if (!/^[0-9A-Fa-f]{2}$/.test(hex)) return null; // malformed/truncated %-escape
+      bytes.push(Number.parseInt(hex, 16));
       i += 2;
     } else {
       const code = ch.codePointAt(0) as number;

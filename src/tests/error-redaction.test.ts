@@ -159,6 +159,30 @@ describe('wrapLexwareError token redaction', () => {
     expect(cause.config?.url).toBe('/contacts?[REDACTED]');
   });
 
+  // Regression: sanitizeAxiosError never touched err.response.data (formatError
+  // needs to read it first to build the message), which left it fully intact and
+  // reachable through wrapped.cause even though sanitizeAxiosError reported "fully
+  // sanitized" — a response body can carry PII the caller never sent (an echoed
+  // field, an internal value) just as easily as config.data can.
+  it('does not leak response.data through the chained cause once the message has been derived from it', () => {
+    const err = makeAxiosError({
+      withResponse: {
+        status: 500,
+        statusText: 'Internal Server Error',
+        data: { message: 'boom', status: 500, echoed: { iban: 'DE00-SECRET-IBAN' } },
+      },
+    });
+
+    const wrapped = wrapLexwareError(err) as Error;
+    // The message text, derived from response.data BEFORE it's dropped, must survive.
+    expect(wrapped.message).toBe('Lexware API [500]: boom');
+
+    expect(util.inspect(wrapped, { depth: null })).not.toContain('DE00-SECRET-IBAN');
+
+    const cause = wrapped.cause as AxiosError;
+    expect(cause.response?.data).toBeUndefined();
+  });
+
   describe('fail-closed sanitization (#75)', () => {
     it('sanitizeAxiosError returns true for a normal, unfrozen error', () => {
       const err = makeAxiosError({

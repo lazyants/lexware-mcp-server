@@ -76,6 +76,37 @@ describe('parseContentDispositionFileName', () => {
     it('returns undefined when filename* is undecodable and there is no plain fallback', () => {
       expect(parseContentDispositionFileName("filename*=UTF-8''%FF%FE.pdf")).toBeUndefined();
     });
+
+    // Regression: Number.parseInt is a lenient PARSER, not a validator —
+    // parseInt('2G', 16) returns 2 rather than NaN — so a malformed %-escape must
+    // be caught by an exact two-hex-digit check, not by inspecting parseInt's
+    // result. Each case here previously mis-decoded (or passed a literal '%'
+    // through) instead of falling through to the plain `filename`.
+    describe('malformed percent-escapes fall through instead of mis-decoding', () => {
+      it('rejects a non-hex-digit escape (%2G)', () => {
+        expect(
+          parseContentDispositionFileName(
+            "filename*=UTF-8''%2G.pdf; filename=\"ok.pdf\"",
+          ),
+        ).toBe('ok.pdf');
+      });
+
+      it('rejects a truncated escape at the end of the value (trailing %)', () => {
+        expect(
+          parseContentDispositionFileName(
+            "filename*=UTF-8''trailing%; filename=\"ok.pdf\"",
+          ),
+        ).toBe('ok.pdf');
+      });
+
+      it('rejects an escape with only one hex digit left (%A)', () => {
+        expect(
+          parseContentDispositionFileName(
+            "filename*=UTF-8''%A; filename=\"ok.pdf\"",
+          ),
+        ).toBe('ok.pdf');
+      });
+    });
   });
 
   describe('acknowledged limitations (pinned, not accidental)', () => {

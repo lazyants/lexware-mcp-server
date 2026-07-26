@@ -88,6 +88,20 @@ describe('lexwareUpload MIME guard and body shape', () => {
     expect(filePart.type).toBe('application/pdf; charset=utf-8');
   });
 
+  // Regression: the guard must not accept a value the Blob constructor will itself
+  // blank to "" — that recreates the exact silent-degradation failure the guard
+  // exists to prevent (§1.3b). Blob's own filter rejects ANY character outside the
+  // printable-ASCII range 0x20-0x7E, not merely CR/LF, so a tab (or any other
+  // control byte) in the parameter tail must be rejected too.
+  it('rejects a contentType with a non-CR/LF control character in the parameter tail', async () => {
+    const { lexwareUpload } = await import('../services/lexware.js');
+    const withTab = 'application/pdf;\tcharset=utf-8';
+    await expect(
+      lexwareUpload('/files', Buffer.from('x'), 'a.pdf', withTab),
+    ).rejects.toThrow(`Invalid contentType for upload: ${JSON.stringify(withTab)}`);
+    expect(mockRequest).not.toHaveBeenCalled();
+  });
+
   // Narrowness guard: every existing upload call site passes a plain type with no
   // parameters — must keep working unchanged.
   it('accepts a plain contentType with no parameters', async () => {
