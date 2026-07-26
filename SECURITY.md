@@ -78,14 +78,28 @@ The API token is resolved by `services/lexware.ts` in this order:
 Notes relevant to the supply-chain and credential surface:
 
 - **`@napi-rs/keyring` is a native module shipped as prebuilt platform binaries**
-  (napi-rs, distributed as optional per-platform packages) — there is **no
-  local compile step / `node-gyp`** at install time. It is **pinned** in
+  (napi-rs, distributed as per-platform packages) — there is **no local
+  compile step / `node-gyp`** at install time. It is **pinned** in
   `package.json` (`^1.3.0`); the resolved binaries are locked in
   `package-lock.json` with integrity hashes.
+- **`@napi-rs/keyring` is listed under `optionalDependencies`, not
+  `dependencies`, and loaded via a lazy `await import(...)`.** Be aware that
+  npm installs `optionalDependencies` by default, so this does **not** reduce
+  the default install size for env-var-only setups. What it buys instead:
+  there is **no wasm fallback**, so an npm install on an unsupported
+  platform (or through a private registry that doesn't mirror the
+  per-platform packages) would otherwise fail the whole install; marking it
+  optional turns that into a graceful degrade to the env-var path, and gives
+  users an explicit opt-out via `npm install --omit=optional`.
 - **Graceful, non-fatal fallback:** if the keyring is unavailable (headless
-  Linux without a Secret Service / `libsecret`, CI, a load failure), the
-  keyring read is caught and the server falls back to `LEXWARE_API_TOKEN`.
-  The keyring is never *required*.
+  Linux without a Secret Service / `libsecret`, CI, a load failure, an
+  unsupported platform, `--omit=optional`), the keyring read is caught and
+  the server falls back to `LEXWARE_API_TOKEN`. The keyring is never
+  *required*.
+- **The keyring lookup is bounded by a 5-second `AbortSignal` timeout**
+  (`AsyncEntry.getPassword(signal)`), so a hung or locked credential store
+  cannot stall the MCP stdio handshake indefinitely — a timeout falls
+  through to `LEXWARE_API_TOKEN` exactly like any other keyring failure.
 - **The token is never logged or echoed.** The "no token found" error names
   only the *sources* to configure (keyring service/account, env var) and a
   link to the token page — it never includes a token value. Reports of any

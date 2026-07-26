@@ -8,6 +8,13 @@ const KEYRING_SERVICE_DEFAULT = 'lexware-mcp';
 const KEYRING_ACCOUNT = 'api-token';
 const TOKEN_PAGE_URL = `${LEXWARE_APP_BASE}/addons/public-api`;
 
+// A hung OS keyring call (locked/unresponsive credential store, e.g. a login
+// keychain that never prompts on a headless session) must not stall the MCP
+// stdio handshake forever — that is the single worst failure shape here, since
+// the client has no visibility into why the server never responds. `getToken()`
+// is already async, so bounding this call costs nothing structurally.
+const KEYRING_TIMEOUT_MS = 5_000;
+
 /**
  * Pure token-source selection: prefer the keyring value, then the env value.
  * Throws a clear, secret-free error when neither is present. Kept pure (no IO)
@@ -41,10 +48,16 @@ async function resolveToken(): Promise<string> {
 
   let keyringValue: string | null = null;
   try {
-    const { Entry } = await import('@napi-rs/keyring');
-    keyringValue = new Entry(service, KEYRING_ACCOUNT).getPassword();
+    // AsyncEntry (not the sync Entry) so a slow/locked credential store can be
+    // bounded with an AbortSignal timeout instead of blocking the event loop.
+    const { AsyncEntry } = await import('@napi-rs/keyring');
+    keyringValue =
+      (await new AsyncEntry(service, KEYRING_ACCOUNT).getPassword(
+        AbortSignal.timeout(KEYRING_TIMEOUT_MS)
+      )) ?? null;
   } catch {
-    // keyring unavailable (e.g. headless Linux without libsecret) — fall back to env
+    // keyring unavailable (e.g. headless Linux without libsecret), no entry, or
+    // it didn't respond within KEYRING_TIMEOUT_MS — fall back to env either way.
   }
 
   return resolveApiToken({
@@ -220,53 +233,9 @@ function stripUndefined(obj: Record<string, unknown>): Record<string, unknown> {
   return result;
 }
 
-/**
- * Strip every copy of the bearer token from a failed AxiosError before it is
- * surfaced as an Error `cause`. The token reaches an error along several paths,
- * so scrubbing only `config.headers` (as an earlier version did) is not enough:
- *
- *   1. `config.headers.Authorization` — the request header object, present on
- *      BOTH `err.config` and `err.response.config` (axios may share or copy it).
- *   2. `err.request._header` / `err.response.request._header` — Node's
- *      ClientRequest keeps the raw "Authorization: Bearer <token>\r\n" header
- *      block, which `util.inspect()` / `JSON` walks / a structured logger print.
- *
- * We scrub the header objects and drop the ClientRequest references entirely, so
- * logging the whole error (`console.error(err)`, `util.inspect(err)`, a
- * structured logger) can no longer leak the token. Runs only in the terminal
- * throw path (after retries), so mutating the spent error is safe.
- */
-function sanitizeAxiosError(err: AxiosError): void {
-  const scrubHeaders = (config: { headers?: unknown } | undefined): void => {
-    const headers = config?.headers as
-      | (Record<string, unknown> & { delete?: (name: string) => void })
-      | undefined;
-    if (!headers) return;
-    headers.delete?.('Authorization'); // AxiosHeaders instances
-    delete headers.Authorization; // plain-object headers
-    delete headers.authorization;
-  };
-  scrubHeaders(err.config);
-  scrubHeaders(err.response?.config);
-  // Drop the Node ClientRequest objects: their `_header` field holds the raw
-  // "Authorization: Bearer <token>" block that header scrubbing above misses.
-  delete (err as { request?: unknown }).request;
-  if (err.response) {
-    delete (err.response as { request?: unknown }).request;
-  }
-}
-
-/**
- * Single sanitized throw path for every failed Lexware request. Scrubs the token
- * from the AxiosError first, then throws a clean Error that carries the spent
- * error as `cause` (so `preserve-caught-error` is satisfied and the original
- * stack is retained without leaking the bearer token). Returns `never`.
- */
-function throwFormatted(err: AxiosError): never {
-  sanitizeAxiosError(err);
-
+function formatError(err: AxiosError): Error {
   if (!err.response) {
-    throw new Error(`Network error: ${err.message}`, { cause: err });
+    return new Error(`Network error: ${err.message}`, { cause: err });
   }
 
   const body = err.response.data;
@@ -277,16 +246,16 @@ function throwFormatted(err: AxiosError): never {
     const issues = legacy.IssueList.map(
       (i) => `[${i.type}] ${i.source}: ${i.i18nKey}`
     ).join('; ');
-    throw new Error(`Lexware API validation error: ${issues}`, { cause: err });
+    return new Error(`Lexware API validation error: ${issues}`, { cause: err });
   }
 
   // Standard error format
   const standard = body as LexwareStandardError | undefined;
   if (standard?.message) {
-    throw new Error(`Lexware API [${standard.status}]: ${standard.message}`, { cause: err });
+    return new Error(`Lexware API [${standard.status}]: ${standard.message}`, { cause: err });
   }
 
-  throw new Error(`Lexware API error: ${err.response.status} ${err.response.statusText}`, { cause: err });
+  return new Error(`Lexware API error: ${err.response.status} ${err.response.statusText}`, { cause: err });
 }
 
 // Headers that must never survive on an AxiosError we chain as `{ cause: err }`.

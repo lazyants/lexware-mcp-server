@@ -7,13 +7,15 @@ import { AxiosError, AxiosHeaders } from 'axios';
 const { mockRequest, mockCreate, mockGetPassword } = vi.hoisted(() => ({
   mockRequest: vi.fn(),
   mockCreate: vi.fn(),
-  mockGetPassword: vi.fn<() => string | null>().mockReturnValue(null),
+  mockGetPassword: vi.fn<(signal?: AbortSignal) => Promise<string | undefined>>().mockResolvedValue(undefined),
 }));
 
-// GOTCHA: Entry is called with `new`, so the implementation must be a regular
-// function (not an arrow function), otherwise JS throws "not a constructor".
+// GOTCHA: AsyncEntry is called with `new`, so the implementation must be a
+// regular function (not an arrow function), otherwise JS throws "not a
+// constructor". getPassword() is async (real AsyncEntry.getPassword returns
+// Promise<string | undefined>) so it can be bounded by an AbortSignal timeout.
 vi.mock('@napi-rs/keyring', () => ({
-  Entry: vi.fn(function () { return { getPassword: mockGetPassword }; } as any),
+  AsyncEntry: vi.fn(function () { return { getPassword: mockGetPassword }; } as any),
 }));
 
 // GOTCHA: Must use importOriginal to preserve AxiosError class — a plain mock
@@ -46,7 +48,7 @@ describe('lexware client', () => {
     delete process.env.LEXWARE_KEYRING_SERVICE;
     mockRequest.mockReset();
     mockCreate.mockClear();
-    mockGetPassword.mockReturnValue(null);
+    mockGetPassword.mockResolvedValue(undefined);
     const mockInstance = {
       request: mockRequest,
       interceptors: { response: { use: vi.fn() } },
@@ -91,7 +93,7 @@ describe('lexware client', () => {
   });
 
   it('uses keyring token when available, ignoring env var', async () => {
-    mockGetPassword.mockReturnValue('keyring-token');
+    mockGetPassword.mockResolvedValue('keyring-token');
     mockRequest.mockResolvedValue({ data: { ok: true } });
     const { lexwareRequest } = await import('../services/lexware.js');
     await lexwareRequest('GET', '/profile');
@@ -103,18 +105,45 @@ describe('lexware client', () => {
   });
 
   it('uses LEXWARE_KEYRING_SERVICE as keyring service name', async () => {
-    const { Entry } = await import('@napi-rs/keyring');
+    const { AsyncEntry } = await import('@napi-rs/keyring');
     process.env.LEXWARE_KEYRING_SERVICE = 'my-company';
-    mockGetPassword.mockReturnValue('company-token');
+    mockGetPassword.mockResolvedValue('company-token');
     mockRequest.mockResolvedValue({ data: {} });
     const { lexwareRequest } = await import('../services/lexware.js');
     await lexwareRequest('GET', '/profile');
-    expect(Entry).toHaveBeenCalledWith('my-company', 'api-token');
+    expect(AsyncEntry).toHaveBeenCalledWith('my-company', 'api-token');
+  });
+
+  it('passes an AbortSignal timeout to the keyring getPassword call', async () => {
+    mockGetPassword.mockResolvedValue('keyring-token');
+    mockRequest.mockResolvedValue({ data: { ok: true } });
+    const { lexwareRequest } = await import('../services/lexware.js');
+    await lexwareRequest('GET', '/profile');
+    expect(mockGetPassword).toHaveBeenCalledWith(expect.any(AbortSignal));
+  });
+
+  it('falls back to LEXWARE_API_TOKEN when the keyring getPassword call times out', async () => {
+    mockGetPassword.mockImplementation(
+      () => new Promise((_, reject) => {
+        // Simulate AsyncEntry rejecting once its AbortSignal fires, without
+        // waiting out the real KEYRING_TIMEOUT_MS in this test.
+        reject(new Error('The operation was aborted'));
+      })
+    );
+    process.env.LEXWARE_API_TOKEN = 'env-fallback-token';
+    mockRequest.mockResolvedValue({ data: { ok: true } });
+    const { lexwareRequest } = await import('../services/lexware.js');
+    await lexwareRequest('GET', '/profile');
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer env-fallback-token' }),
+      })
+    );
   });
 
   it('falls back to LEXWARE_API_TOKEN when the keyring module throws (headless)', async () => {
-    const { Entry } = await import('@napi-rs/keyring');
-    (Entry as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+    const { AsyncEntry } = await import('@napi-rs/keyring');
+    (AsyncEntry as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
       throw new Error('keyring unavailable: no libsecret');
     });
     process.env.LEXWARE_API_TOKEN = 'env-fallback-token';
