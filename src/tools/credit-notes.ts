@@ -1,9 +1,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
+import { lexwareRequest } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
 import { UuidSchema, DownloadFormat, downloadAccept, downloadFallbackName } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
+import { downloadFileResult } from './_download.js';
 
 export function registerCreditNoteTools(server: McpServer): void {
   server.registerTool('lexware_create_credit_note', {
@@ -56,12 +57,11 @@ export function registerCreditNoteTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    const file = await lexwareDownload(`/credit-notes/${params.id}/file`, downloadAccept(params.format));
-    return {
-      fileName: file.fileName || downloadFallbackName('credit-note', file.contentType),
-      contentType: file.contentType,
-      contentBase64: file.data.toString('base64'),
-    };
+    return downloadFileResult(
+      `/credit-notes/${params.id}/file`,
+      (contentType) => downloadFallbackName('credit-note', contentType),
+      downloadAccept(params.format),
+    );
   }));
 
   server.registerTool('lexware_pursue_credit_note', {

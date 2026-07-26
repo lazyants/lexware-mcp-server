@@ -1,9 +1,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
+import { lexwareRequest } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
 import { UuidSchema } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
+import { downloadFileResult } from './_download.js';
 
 export function registerQuotationTools(server: McpServer): void {
   server.registerTool('lexware_create_quotation', {
@@ -53,12 +54,7 @@ export function registerQuotationTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    const file = await lexwareDownload(`/quotations/${params.id}/file`);
-    return {
-      fileName: file.fileName || 'quotation.pdf',
-      contentType: file.contentType,
-      contentBase64: file.data.toString('base64'),
-    };
+    return downloadFileResult(`/quotations/${params.id}/file`, 'quotation.pdf');
   }));
 
   // NOTE: lexware_pursue_quotation was removed because quotations are the start
