@@ -1,9 +1,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
+import { lexwareRequest } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
 import { UuidSchema } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
+import { downloadFileResult } from './_download.js';
 
 export function registerDeliveryNoteTools(server: McpServer): void {
   server.registerTool('lexware_create_delivery_note', {
@@ -53,12 +54,7 @@ export function registerDeliveryNoteTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    const file = await lexwareDownload(`/delivery-notes/${params.id}/file`);
-    return {
-      fileName: file.fileName || 'delivery-note.pdf',
-      contentType: file.contentType,
-      contentBase64: file.data.toString('base64'),
-    };
+    return downloadFileResult(`/delivery-notes/${params.id}/file`, 'delivery-note.pdf');
   }));
 
   server.registerTool('lexware_pursue_delivery_note', {

@@ -1,28 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { createServer } from '../server.js';
+import {
+  allToolRegistrars,
+  salesToolRegistrars,
+  contactsToolRegistrars,
+  referenceToolRegistrars,
+  bookkeepingToolRegistrars,
+  systemToolRegistrars,
+  registerTools,
+  type ToolRegistrar,
+} from '../tools/registrars.js';
 
-import { registerInvoiceTools } from '../tools/invoices.js';
-import { registerCreditNoteTools } from '../tools/credit-notes.js';
-import { registerQuotationTools } from '../tools/quotations.js';
-import { registerOrderConfirmationTools } from '../tools/order-confirmations.js';
-import { registerDeliveryNoteTools } from '../tools/delivery-notes.js';
-import { registerDownPaymentInvoiceTools } from '../tools/down-payment-invoices.js';
-import { registerDunningTools } from '../tools/dunnings.js';
-import { registerArticleTools } from '../tools/articles.js';
-import { registerContactTools } from '../tools/contacts.js';
-import { registerCountryTools } from '../tools/countries.js';
-import { registerPaymentConditionTools } from '../tools/payment-conditions.js';
-import { registerPostingCategoryTools } from '../tools/posting-categories.js';
-import { registerProfileTools } from '../tools/profile.js';
-import { registerVoucherTools } from '../tools/vouchers.js';
-import { registerVoucherlistTools } from '../tools/voucherlist.js';
-import { registerPaymentTools } from '../tools/payments.js';
-import { registerEventSubscriptionTools } from '../tools/event-subscriptions.js';
-import { registerFileTools } from '../tools/files.js';
-import { registerRecurringTemplateTools } from '../tools/recurring-templates.js';
-import { registerPrintLayoutTools } from '../tools/print-layouts.js';
-
-function registerAllAndCount(): number {
+function registerAndCount(registrars: ToolRegistrar[]): number {
   const server = createServer('test');
   let count = 0;
   // GOTCHA: McpServer.registerTool has overloaded signatures — TypeScript rejects
@@ -33,90 +22,37 @@ function registerAllAndCount(): number {
     return (orig as any).apply(server, args);
   }) as typeof server.registerTool;
 
-  registerInvoiceTools(server);
-  registerCreditNoteTools(server);
-  registerQuotationTools(server);
-  registerOrderConfirmationTools(server);
-  registerDeliveryNoteTools(server);
-  registerDownPaymentInvoiceTools(server);
-  registerDunningTools(server);
-  registerArticleTools(server);
-  registerContactTools(server);
-  registerCountryTools(server);
-  registerPaymentConditionTools(server);
-  registerPostingCategoryTools(server);
-  registerProfileTools(server);
-  registerPrintLayoutTools(server);
-  registerVoucherTools(server);
-  registerVoucherlistTools(server);
-  registerPaymentTools(server);
-  registerEventSubscriptionTools(server);
-  registerFileTools(server);
-  registerRecurringTemplateTools(server);
+  registerTools(server, registrars);
 
-  return count;
-}
-
-function registerAndCount(registerFns: Array<(s: ReturnType<typeof createServer>) => void>): number {
-  const server = createServer('test');
-  let count = 0;
-  const orig = server.registerTool;
-  server.registerTool = ((...args: any[]) => {
-    count++;
-    return (orig as any).apply(server, args);
-  }) as typeof server.registerTool;
-  for (const fn of registerFns) fn(server);
   return count;
 }
 
 describe('smoke tests', () => {
+  // Every count below derives from `../tools/registrars.js` — the SAME arrays
+  // `index.ts` / `entry-*.ts` register from — so a tool silently dropped from
+  // (or duplicated into) an entry's array fails here too, instead of this test
+  // verifying its own hand-copied, independently-drifting list.
   it('registers exactly 66 tools in full server', () => {
-    expect(registerAllAndCount()).toBe(66);
+    expect(registerAndCount(allToolRegistrars)).toBe(66);
   });
 
   it('entry-sales registers 32 tools', () => {
-    expect(registerAndCount([
-      registerInvoiceTools,
-      registerCreditNoteTools,
-      registerQuotationTools,
-      registerOrderConfirmationTools,
-      registerDeliveryNoteTools,
-      registerDownPaymentInvoiceTools,
-      registerDunningTools,
-      registerVoucherlistTools,
-    ])).toBe(32);
+    expect(registerAndCount(salesToolRegistrars)).toBe(32);
   });
 
   it('entry-contacts registers 10 tools', () => {
-    expect(registerAndCount([
-      registerContactTools,
-      registerArticleTools,
-    ])).toBe(10);
+    expect(registerAndCount(contactsToolRegistrars)).toBe(10);
   });
 
   it('entry-bookkeeping registers 8 tools', () => {
-    expect(registerAndCount([
-      registerVoucherTools,
-      registerVoucherlistTools,
-      registerPaymentTools,
-    ])).toBe(8);
+    expect(registerAndCount(bookkeepingToolRegistrars)).toBe(8);
   });
 
   it('entry-reference registers 5 tools', () => {
-    expect(registerAndCount([
-      registerCountryTools,
-      registerPaymentConditionTools,
-      registerPostingCategoryTools,
-      registerProfileTools,
-      registerPrintLayoutTools,
-    ])).toBe(5);
+    expect(registerAndCount(referenceToolRegistrars)).toBe(5);
   });
 
   it('entry-system registers 12 tools', () => {
-    expect(registerAndCount([
-      registerEventSubscriptionTools,
-      registerFileTools,
-      registerRecurringTemplateTools,
-    ])).toBe(12);
+    expect(registerAndCount(systemToolRegistrars)).toBe(12);
   });
 });
