@@ -1,8 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { generateKeyPairSync, createSign } from 'node:crypto';
+import { EventEmitter } from 'node:events';
 import { createServer } from '../server.js';
 import { registerEventSubscriptionTools } from '../tools/event-subscriptions.js';
-import { __resetWebhookKeyCache } from '../services/lexware.js';
+import { __resetWebhookKeyCache, getWebhookPublicKey } from '../services/lexware.js';
+
+// GOTCHA: vi.mock is hoisted above top-level const declarations.
+// Use vi.hoisted() to share the mock fn between test bodies and the factory.
+const { mockHttpsGet } = vi.hoisted(() => ({ mockHttpsGet: vi.fn() }));
+
+vi.mock('node:https', () => ({ get: mockHttpsGet }));
 
 const { publicKey, privateKey } = generateKeyPairSync('rsa', {
   modulusLength: 2048,
@@ -88,5 +95,86 @@ describe('lexware_verify_webhook_signature', () => {
     const signature = sign(payload);
     const result = await handler({ payload, signature });
     expect(result.structuredContent?.algorithm).toBe('RSA-SHA512');
+  });
+});
+
+// The suite above always sets LEXWARE_WEBHOOK_PUBLIC_KEY, which short-circuits
+// getWebhookPublicKey() before it ever touches node:https — so none of it
+// exercises fetchAndValidatePublicKey. These tests mock node:https directly and
+// drive the REAL fetch/cache path, with no env override in play.
+
+type FakeReq = EventEmitter & { setTimeout: (ms: number, cb: () => void) => void; destroy: (err?: Error) => void };
+type FakeRes = EventEmitter & { statusCode: number; resume: () => void };
+
+function fakeReq(): FakeReq {
+  const req = new EventEmitter() as FakeReq;
+  req.setTimeout = vi.fn();
+  req.destroy = vi.fn();
+  return req;
+}
+
+function fakeRes(statusCode: number): FakeRes {
+  const res = new EventEmitter() as FakeRes;
+  res.statusCode = statusCode;
+  res.resume = vi.fn();
+  return res;
+}
+
+// Queues one httpsGet(url, cb) response. By the time cb(res) returns, the SUT
+// has synchronously registered its res 'data'/'end' listeners (for the 200
+// path), so emitting right after cb(res) is safe and needs no microtask hop.
+function queueHttpsResponse(statusCode: number, body?: string): void {
+  mockHttpsGet.mockImplementationOnce((_url: string, cb: (res: FakeRes) => void) => {
+    const req = fakeReq();
+    const res = fakeRes(statusCode);
+    cb(res);
+    if (statusCode === 200) {
+      res.emit('data', Buffer.from(body ?? ''));
+      res.emit('end');
+    }
+    return req;
+  });
+}
+
+describe('getWebhookPublicKey (real fetch path, no env override)', () => {
+  beforeEach(() => {
+    delete process.env.LEXWARE_WEBHOOK_PUBLIC_KEY;
+    mockHttpsGet.mockReset();
+    __resetWebhookKeyCache();
+  });
+
+  afterEach(() => {
+    __resetWebhookKeyCache();
+  });
+
+  it('rejects on a non-200 response', async () => {
+    queueHttpsResponse(404);
+    await expect(getWebhookPublicKey()).rejects.toThrow(/HTTP 404/);
+    expect(mockHttpsGet).toHaveBeenCalledOnce();
+  });
+
+  it('rejects on an invalid PEM body', async () => {
+    queueHttpsResponse(200, 'this is not a PEM-encoded key');
+    await expect(getWebhookPublicKey()).rejects.toThrow(/invalid PEM/);
+  });
+
+  it('clears the cache on rejection so the next call retries', async () => {
+    queueHttpsResponse(404);
+    await expect(getWebhookPublicKey()).rejects.toThrow(/HTTP 404/);
+    expect(mockHttpsGet).toHaveBeenCalledTimes(1);
+
+    queueHttpsResponse(200, publicKey);
+    await expect(getWebhookPublicKey()).resolves.toBe(publicKey);
+    expect(mockHttpsGet).toHaveBeenCalledTimes(2);
+  });
+
+  it('shares one in-flight fetch across concurrent callers', async () => {
+    queueHttpsResponse(200, publicKey);
+
+    const [first, second] = await Promise.all([getWebhookPublicKey(), getWebhookPublicKey()]);
+
+    expect(first).toBe(publicKey);
+    expect(second).toBe(publicKey);
+    expect(mockHttpsGet).toHaveBeenCalledOnce();
   });
 });
