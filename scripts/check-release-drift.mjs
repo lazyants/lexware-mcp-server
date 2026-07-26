@@ -34,6 +34,11 @@ const WARN_ONLY = process.argv.includes('--warn-only');
 // `files` field (`dist`, generated from `src` minus `src/tests`, plus
 // these three). A change confined to `src/tests` or `package-lock.json`
 // never needs a release, so both are excluded/omitted here per D11.
+// NOTE: the `:(exclude)src/tests` half of this is only correct because
+// `tsconfig.json`'s build output excludes compiled tests from `dist/` --
+// if that packaging fix is ever reverted, this exclusion becomes a blind
+// spot (a test-only change would then genuinely alter the tarball) and
+// must be widened to match.
 const SHIPPABLE_PATHSPECS = [
   'src',
   ':(exclude)src/tests',
@@ -53,15 +58,20 @@ const SHIPPABLE_PATHSPECS = [
 // first release -- documented here rather than silently assumed.
 const SUSPICIOUS_COMMIT_COUNT_WITH_NO_TAGS = 20;
 
-// What counts as a "release tag". Every tag in this repo is `vN.N.N` today,
-// so an unfiltered `git describe`/`git tag --list` would happen to agree --
-// but unfiltered, a single stray non-release tag (`nightly`, `backup-2026`,
-// a moved tag) would silently become "the last release", and the version
-// recorded there would get compared against as if it meant something. That
-// is a wrong answer, not a loud failure -- exactly the class of bug this
-// script exists to eliminate. Both Mode A's tag lookup and Mode B's tag
-// scan use this same glob so the two modes agree on what a release is.
+// What counts as a "release tag". Every tag in this repo is `vN.N.N` today.
+// `TAG_GLOB` is a cheap pre-filter passed to git, NOT the actual shape
+// check -- `git --match` is a glob, not a regex: `v[0-9]*` matches
+// `v99-nightly-probe` just as happily as `v4.1.0` (verified). Left
+// unfiltered any further, a single stray non-release tag (`v99-nightly`,
+// `backup-2026`, a moved tag) would silently become "the last release",
+// and the version recorded there would get compared against as if it
+// meant something -- a wrong answer, not a loud failure, which is exactly
+// the class of bug this script exists to eliminate. `RELEASE_TAG_RE` is
+// the real shape check, applied in JS to every glob-matched candidate; use
+// `listReleaseTags()` everywhere a tag list is needed so Mode A and Mode B
+// always agree on what a release is.
 const TAG_GLOB = 'v[0-9]*';
+const RELEASE_TAG_RE = /^v\d+\.\d+\.\d+$/;
 
 function git(args) {
   return execFileSync('git', args, { encoding: 'utf8' }).trim();
@@ -80,10 +90,29 @@ function readVersionAt(ref) {
   return JSON.parse(git(['show', `${ref}:package.json`])).version;
 }
 
+function isAncestorOfHead(ref) {
+  try {
+    execFileSync('git', ['merge-base', '--is-ancestor', ref, 'HEAD']);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Full, JS-validated list of real release tags -- glob pre-filter, then
+// the actual shape check. Not restricted to HEAD's ancestry here; callers
+// that need "reachable from HEAD" filter further themselves.
+function listReleaseTags() {
+  return git(['tag', '--list', TAG_GLOB])
+    .split('\n')
+    .filter(Boolean)
+    .filter((tag) => RELEASE_TAG_RE.test(tag));
+}
+
 // --- Guard 1: shallow clone --------------------------------------------
 // `git fetch --depth=1` (the checkout default) reports 0 tags AND
-// `is-shallow-repository: true`. Left unguarded, `git describe` below would
-// throw "no tags can describe" and get read as "no releases yet" -- a false
+// `is-shallow-repository: true`. Left unguarded, the tag lookup below would
+// see zero release tags and read that as "no releases yet" -- a false
 // all-clear on a repo that actually has releases. Fail loudly instead of
 // silently passing.
 if (git(['rev-parse', '--is-shallow-repository']) === 'true') {
@@ -95,25 +124,40 @@ if (git(['rev-parse', '--is-shallow-repository']) === 'true') {
 }
 
 // --- Locate the last release tag reachable from HEAD --------------------
+// Enumerate every shape-valid release tag that is also an ancestor of
+// HEAD, then pick the one closest to HEAD (fewest commits between the tag
+// and HEAD) -- that is what "nearest ancestor tag" (`git describe`'s
+// notion of "last release") means, computed without trusting `--match` to
+// double as a shape check.
+const releaseTagsReachableFromHead = listReleaseTags().filter(isAncestorOfHead);
+
 let lastTag;
-try {
-  lastTag = git(['describe', '--tags', '--abbrev=0', '--match', TAG_GLOB]);
-} catch {
+if (releaseTagsReachableFromHead.length > 0) {
+  let bestDistance = Infinity;
+  for (const tag of releaseTagsReachableFromHead) {
+    const distance = Number(git(['rev-list', '--count', `${tag}..HEAD`]));
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      lastTag = tag;
+    }
+  }
+} else {
   // --- Guard 2: full-depth clone taken with `--no-tags` ------------------
   // Not caught by guard 1 (verified NOT flagged shallow). A repo this deep
-  // with zero tags is far more likely to be missing tags than pre-release.
+  // with zero (real) tags is far more likely to be missing tags than
+  // pre-release.
   const commitCount = Number(git(['rev-list', '--count', 'HEAD']));
   if (commitCount > SUSPICIOUS_COMMIT_COUNT_WITH_NO_TAGS) {
     fail(
-      `No tags are reachable from HEAD, but HEAD has ${commitCount} commits ` +
-        `(> ${SUSPICIOUS_COMMIT_COUNT_WITH_NO_TAGS}). This looks like a clone ` +
-        'taken with `--no-tags` rather than a genuinely pre-release repo -- ' +
-        're-run with full tag history (do not pass `--no-tags` to fetch).',
+      `No release tags are reachable from HEAD, but HEAD has ${commitCount} ` +
+        `commits (> ${SUSPICIOUS_COMMIT_COUNT_WITH_NO_TAGS}). This looks like ` +
+        'a clone taken with `--no-tags` rather than a genuinely pre-release ' +
+        'repo -- re-run with full tag history (do not pass `--no-tags` to fetch).',
     );
   }
   console.log(
-    `No tags reachable from HEAD, and only ${commitCount} commit(s) exist -- ` +
-      'treating this as a pre-release repo with nothing to compare against.',
+    `No release tags reachable from HEAD, and only ${commitCount} commit(s) ` +
+      'exist -- treating this as a pre-release repo with nothing to compare against.',
   );
   process.exit(0);
 }
@@ -122,11 +166,10 @@ const currentVersion = JSON.parse(readFileSync('package.json', 'utf8')).version;
 const taggedVersion = readVersionAt(lastTag);
 
 // --- Mode B: bumped but never released -----------------------------------
-// Checked against every tag, not just the latest -- a bump that happens to
-// match an OLDER tag's version is covered by the "out of scope" note above,
-// not by this branch.
-const allTags = git(['tag', '--list', TAG_GLOB]).split('\n').filter(Boolean);
-const versionIsTagged = allTags.some((tag) => {
+// Checked against every release tag, not just the latest -- a bump that
+// happens to match an OLDER tag's version is covered by the "out of scope"
+// note above, not by this branch.
+const versionIsTagged = listReleaseTags().some((tag) => {
   try {
     return readVersionAt(tag) === currentVersion;
   } catch {
