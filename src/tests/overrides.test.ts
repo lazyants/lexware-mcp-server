@@ -56,8 +56,6 @@ interface Pin {
   advisory: string;
   /** Manifest section carrying the pin. */
   declaredIn: 'overrides' | 'dependencies';
-  /** Also assert the package resolves somewhere, so the lockfile layer cannot pass vacuously. */
-  requireResolved?: boolean;
 }
 
 const PINS: Pin[] = [
@@ -66,12 +64,10 @@ const PINS: Pin[] = [
     floor: '6.15.2',
     advisory: 'GHSA-q8mj-m7cp-5q26 DoS',
     declaredIn: 'overrides',
-    requireResolved: true,
   },
   {
     // Advisory range grew to <= 4.12.26 (GHSA-w62v-xxxg-mg59, GHSA-hvrm-45r6-mjfj,
     // GHSA-xgm2-5f3f-mvvc), so the previous ^4.12.25 pin resolved inside it.
-    // hono may be absent from the production tree; if present it must be patched.
     name: 'hono',
     floor: '4.12.27',
     advisory: 'GHSA-xrhx-7g5j-rcj5 et al.',
@@ -80,14 +76,10 @@ const PINS: Pin[] = [
   {
     // Advisory range 3.0.0-3.1.3; 3.1.4 is the first 3.x outside it. Stay on
     // 3.x — `ajv` declares `fast-uri: ^3.0.1`.
-    // requireResolved: unlike the hono chain below, fast-uri is NOT optional —
-    // it arrives unconditionally via ajv/ajv-formats, which are core SDK deps.
-    // Its disappearance would mean the guard silently stopped guarding.
     name: 'fast-uri',
     floor: '3.1.4',
     advisory: 'GHSA-v2hh-gcrm-f6hx, GHSA-4c8g-83qw-93j6 host confusion',
     declaredIn: 'overrides',
-    requireResolved: true,
   },
   {
     // Forced MAJOR against the SDK's declared `^1.19.9`. Safe because this
@@ -104,8 +96,6 @@ const PINS: Pin[] = [
     declaredIn: 'overrides',
   },
   {
-    // No requireResolved: reached only through express, which is part of the
-    // optional HTTP-transport chain this server never loads.
     name: 'body-parser',
     floor: '2.3.0',
     advisory: 'GHSA-v422-hmwv-36x6 DoS via invalid limit',
@@ -119,7 +109,6 @@ const PINS: Pin[] = [
     floor: '5.0.8',
     advisory: 'GHSA-mh99-v99m-4gvg, GHSA-3jxr-9vmj-r5cp ReDoS',
     declaredIn: 'overrides',
-    requireResolved: true,
   },
   {
     // Patched by raising the direct dependency rather than by an override.
@@ -127,14 +116,13 @@ const PINS: Pin[] = [
     floor: '4.0.6',
     advisory: 'GHSA-hmw2-7cc7-3qxx CRLF injection',
     declaredIn: 'dependencies',
-    requireResolved: true,
   },
 ];
 
 describe('security overrides (npm-audit gate regression guard)', () => {
   // A plain loop rather than `describe.each`, which quotes and truncates
   // interpolated titles ("'fast-uri' ('GHSA-v2hh-gcrm-f6hx, GHSA-4c8g-83…')").
-  for (const { name, floor, advisory, declaredIn, requireResolved } of PINS) {
+  for (const { name, floor, advisory, declaredIn } of PINS) {
     describe(`${name} (${advisory})`, () => {
       it(`declares ^${floor} in package.json ${declaredIn}`, () => {
         const declarations = (pkg[declaredIn] ?? {}) as Record<string, string>;
@@ -143,7 +131,12 @@ describe('security overrides (npm-audit gate regression guard)', () => {
 
       it(`resolves every lockfile entry to >= ${floor}`, () => {
         const entries = resolvedVersions(name);
-        if (requireResolved) expect(entries.length).toBeGreaterThan(0);
+        // Always assert presence: a pinned package that stops resolving means this
+        // guard silently stopped guarding, which is the exact failure mode it exists
+        // to catch. Verified 2026-07-27 that all seven resolve, and that the MCP SDK
+        // declares no optionalDependencies -- hono, @hono/node-server, express and
+        // ajv are all regular deps, so none of these is conditionally installed.
+        expect(entries.length, `${name} is pinned but resolves nowhere`).toBeGreaterThan(0);
         for (const { path, version } of entries) {
           expect(gte(version, floor), `${path} resolved ${name} ${version} < ${floor}`).toBe(true);
         }
