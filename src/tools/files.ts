@@ -1,9 +1,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { lexwareRequest, lexwareUpload, lexwareDownload } from '../services/lexware.js';
+import { lexwareRequest, lexwareUpload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
 import { UuidSchema } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
+import { downloadFileResult } from './_download.js';
 
 export function registerFileTools(server: McpServer): void {
   server.registerTool('lexware_upload_file', {
@@ -40,12 +41,7 @@ export function registerFileTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    const file = await lexwareDownload(`/files/${params.id}`);
-    return {
-      fileName: file.fileName || 'file',
-      contentType: file.contentType,
-      contentBase64: file.data.toString('base64'),
-    };
+    return downloadFileResult(`/files/${params.id}`, 'file');
   }));
 
   server.registerTool('lexware_get_file_status', {

@@ -1,9 +1,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { lexwareRequest, lexwareDownload } from '../services/lexware.js';
+import { lexwareRequest } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
 import { UuidSchema } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
+import { downloadFileResult } from './_download.js';
 
 export function registerOrderConfirmationTools(server: McpServer): void {
   server.registerTool('lexware_create_order_confirmation', {
@@ -53,12 +54,7 @@ export function registerOrderConfirmationTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    const file = await lexwareDownload(`/order-confirmations/${params.id}/file`);
-    return {
-      fileName: file.fileName || 'order-confirmation.pdf',
-      contentType: file.contentType,
-      contentBase64: file.data.toString('base64'),
-    };
+    return downloadFileResult(`/order-confirmations/${params.id}/file`, 'order-confirmation.pdf');
   }));
 
   server.registerTool('lexware_pursue_order_confirmation', {
