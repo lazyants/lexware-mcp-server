@@ -322,6 +322,10 @@ through the model's context window. With `filePath`, `fileName` defaults to the 
 `contentType` is auto-detected for `.png`, `.jpg`/`.jpeg` and `.tiff`/`.tif`, falling back to
 `application/pdf`. Provide exactly one of the two — supplying both, or neither, is a validation error.
 
+Uploads are capped at 5 MB. The limit is checked against the decoded bytes before anything is sent,
+so an oversized file fails immediately with a `file_too_large` error carrying the actual and maximum
+sizes rather than after streaming the whole body to Lexware.
+
 ### Recurring Templates (3 tools) — system
 
 `lexware_list_recurring_templates`, `lexware_get_recurring_template`, `lexware_deeplink_recurring_template`

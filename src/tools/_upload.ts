@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { z } from 'zod';
 import { MimeTypeSchema } from '../schemas/common.js';
+import { MAX_UPLOAD_BYTES } from '../constants.js';
 
 /**
  * Shared input shape and body for the two `lexware_upload_*` tools.
@@ -96,8 +97,31 @@ export function uploadInputSchema<Shape extends z.ZodRawShape>(extra: Shape) {
  * bare ENOENT from deep inside the read. Both failures chain the original error as
  * `cause` — the errno, syscall and path stay recoverable for a caller that inspects
  * it, while the message stays readable.
+ *
+ * Oversized payloads are rejected here, before any bytes reach the wire.
  */
 export function resolveUpload(params: UploadSource): ResolvedUpload {
+  return assertWithinSizeLimit(readSource(params));
+}
+
+// The limit is checked on the RESOLVED buffer, so it governs decoded bytes on both
+// branches — a base64 string is ~33% larger than what it decodes to, and capping the
+// encoded form would reject files that are actually within the limit.
+function assertWithinSizeLimit(upload: ResolvedUpload): ResolvedUpload {
+  if (upload.buffer.byteLength > MAX_UPLOAD_BYTES) {
+    // Serialized payload rather than prose: the caller here is a model deciding what
+    // to do next, and it needs the two numbers and the remedy, not a sentence.
+    throw new Error(JSON.stringify({
+      error: 'file_too_large',
+      actualSize: upload.buffer.byteLength,
+      maxSize: MAX_UPLOAD_BYTES,
+      suggestion: 'Compress the PDF or re-scan at lower DPI to reduce file size below 5 MB',
+    }));
+  }
+  return upload;
+}
+
+function readSource(params: UploadSource): ResolvedUpload {
   if (params.filePath === undefined) {
     // The schema's refinements guarantee contentBase64 and fileName are present
     // on this branch; assert rather than re-validate so the two cannot disagree.

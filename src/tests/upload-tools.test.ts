@@ -231,6 +231,42 @@ describe('lexware_upload_file', () => {
       expect(mocks.readFileSync).not.toHaveBeenCalled();
     });
   });
+
+  describe('handler — 5 MB size limit', () => {
+    const MAX = 5 * 1024 * 1024;
+
+    it('rejects filePath file exceeding 5 MB before calling lexwareUpload', async () => {
+      mocks.realpathSync.mockReturnValue('/docs/large.pdf');
+      mocks.readFileSync.mockReturnValue(Buffer.alloc(MAX + 1));
+      const result = await handler({ filePath: '/docs/large.pdf' }) as any;
+      expect(result.isError).toBe(true);
+      const payload = JSON.parse(result.content[0].text.replace(/^Error: /, ''));
+      expect(payload.error).toBe('file_too_large');
+      expect(payload.actualSize).toBe(MAX + 1);
+      expect(payload.maxSize).toBe(MAX);
+      expect(mocks.lexwareUpload).not.toHaveBeenCalled();
+    });
+
+    // The cap governs DECODED bytes: this base64 string is ~33% longer than MAX+1,
+    // so a check against the encoded form would also reject files under the limit.
+    it('rejects contentBase64 content exceeding 5 MB before calling lexwareUpload', async () => {
+      const content = Buffer.alloc(MAX + 1).toString('base64');
+      const result = await handler({ contentBase64: content, fileName: 'big.pdf' }) as any;
+      expect(result.isError).toBe(true);
+      const payload = JSON.parse(result.content[0].text.replace(/^Error: /, ''));
+      expect(payload.error).toBe('file_too_large');
+      expect(payload.actualSize).toBe(MAX + 1);
+      expect(mocks.lexwareUpload).not.toHaveBeenCalled();
+    });
+
+    it('accepts a file exactly at the 5 MB limit', async () => {
+      mocks.realpathSync.mockReturnValue('/docs/exact.pdf');
+      mocks.readFileSync.mockReturnValue(Buffer.alloc(MAX));
+      const result = await handler({ filePath: '/docs/exact.pdf' }) as any;
+      expect(result.isError).toBeUndefined();
+      expect(mocks.lexwareUpload).toHaveBeenCalled();
+    });
+  });
 });
 
 // ─── lexware_upload_voucher_file ──────────────────────────────────────────────
@@ -319,6 +355,39 @@ describe('lexware_upload_voucher_file', () => {
       const result = await handler({ id: VALID_UUID, filePath: '/link/voucher-doc.pdf' }) as any;
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('/real/voucher-doc.pdf');
+    });
+
+    describe('5 MB size limit', () => {
+      const MAX = 5 * 1024 * 1024;
+
+      it('rejects filePath file exceeding 5 MB before calling lexwareUpload', async () => {
+        mocks.realpathSync.mockReturnValue('/docs/large.pdf');
+        mocks.readFileSync.mockReturnValue(Buffer.alloc(MAX + 1));
+        const result = await handler({ id: VALID_UUID, filePath: '/docs/large.pdf' }) as any;
+        expect(result.isError).toBe(true);
+        const payload = JSON.parse(result.content[0].text.replace(/^Error: /, ''));
+        expect(payload.error).toBe('file_too_large');
+        expect(payload.actualSize).toBe(MAX + 1);
+        expect(payload.maxSize).toBe(MAX);
+        expect(mocks.lexwareUpload).not.toHaveBeenCalled();
+      });
+
+      it('rejects contentBase64 content exceeding 5 MB before calling lexwareUpload', async () => {
+        const content = Buffer.alloc(MAX + 1).toString('base64');
+        const result = await handler({ id: VALID_UUID, contentBase64: content, fileName: 'big.pdf' }) as any;
+        expect(result.isError).toBe(true);
+        const payload = JSON.parse(result.content[0].text.replace(/^Error: /, ''));
+        expect(payload.error).toBe('file_too_large');
+        expect(mocks.lexwareUpload).not.toHaveBeenCalled();
+      });
+
+      it('accepts a file exactly at the 5 MB limit', async () => {
+        mocks.realpathSync.mockReturnValue('/docs/exact.pdf');
+        mocks.readFileSync.mockReturnValue(Buffer.alloc(MAX));
+        const result = await handler({ id: VALID_UUID, filePath: '/docs/exact.pdf' }) as any;
+        expect(result.isError).toBeUndefined();
+        expect(mocks.lexwareUpload).toHaveBeenCalled();
+      });
     });
   });
 });
