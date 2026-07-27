@@ -123,13 +123,9 @@ describe('lexware client', () => {
   });
 
   it('falls back to LEXWARE_API_TOKEN when the keyring getPassword call times out', async () => {
-    mockGetPassword.mockImplementation(
-      () => new Promise((_, reject) => {
-        // Simulate AsyncEntry rejecting once its AbortSignal fires, without
-        // waiting out the real KEYRING_TIMEOUT_MS in this test.
-        reject(new Error('The operation was aborted'));
-      })
-    );
+    // Simulate AsyncEntry rejecting once its AbortSignal fires, without
+    // waiting out the real KEYRING_TIMEOUT_MS in this test.
+    mockGetPassword.mockRejectedValue(new Error('The operation was aborted'));
     process.env.LEXWARE_API_TOKEN = 'env-fallback-token';
     mockRequest.mockResolvedValue({ data: { ok: true } });
     const { lexwareRequest } = await import('../services/lexware.js');
