@@ -31,6 +31,42 @@ export function normalizeVoucherStatus(status: string): string {
 }
 
 /**
+ * SQL-style wildcard match: `%` is any run of characters, `_` exactly one.
+ * Case-insensitive.
+ *
+ * Implemented as an O(m×n) dynamic program rather than by translating the pattern
+ * into a RegExp. The pattern is caller-supplied, and a translated `%`-heavy pattern
+ * is exactly the shape that backtracks catastrophically — this cannot, since each
+ * cell is computed once.
+ */
+export function wildcardMatch(pattern: string, text: string): boolean {
+  const p = pattern.toLowerCase();
+  const t = text.toLowerCase();
+  const m = p.length;
+  const n = t.length;
+
+  // dp[i][j]: does the first i chars of the pattern match the first j of the text?
+  const dp: boolean[][] = Array.from({ length: m + 1 }, () => new Array<boolean>(n + 1).fill(false));
+  dp[0][0] = true;
+  // A leading run of '%' can match the empty text.
+  for (let i = 1; i <= m; i++) {
+    if (p[i - 1] === '%') dp[i][0] = dp[i - 1][0];
+  }
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (p[i - 1] === '%') {
+        // '%' either consumes nothing (dp[i-1][j]) or one more char (dp[i][j-1]).
+        dp[i][j] = dp[i - 1][j] || dp[i][j - 1];
+      } else if (p[i - 1] === '_' || p[i - 1] === t[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      }
+    }
+  }
+  return dp[m][n];
+}
+
+/**
  * Read a voucher's status from either field name, fold it, and write it back under
  * the canonical `voucherStatus` key — dropping the `status` alias so a caller never
  * has to decide which of two disagreeing fields to trust.

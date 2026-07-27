@@ -115,14 +115,13 @@ describe('vouchers tool registry', () => {
   });
 
   describe('lexware_list_vouchers', () => {
-    it('GETs /vouchers with explicit page/size/voucherNumber params', async () => {
-      // GOTCHA: This tool hand-picks the three allowed params rather than
-      // spreading `params` — assert all three are forwarded.
-      mockLexwareRequest.mockResolvedValue({ content: [] });
+    it('GETs /vouchers with the batch size and voucherNumber, paging from 0', async () => {
+      // GOTCHA: This tool owns its paging — it hand-picks the params it forwards
+      // and drives `page` itself, so there is no caller-supplied page to assert.
+      mockLexwareRequest.mockResolvedValue({ content: [], totalPages: 1 });
       const tools = await loadAndRegister();
       const list = getTool(tools, 'lexware_list_vouchers');
       await list.handler({
-        page: 0,
         size: 100,
         voucherNumber: 'RG-001',
       });
@@ -138,8 +137,8 @@ describe('vouchers tool registry', () => {
       });
     });
 
-    it('passes undefined for omitted params (services strips them downstream)', async () => {
-      mockLexwareRequest.mockResolvedValue({ content: [] });
+    it('applies the default batch size and passes undefined for omitted filters', async () => {
+      mockLexwareRequest.mockResolvedValue({ content: [], totalPages: 1 });
       const tools = await loadAndRegister();
       const list = getTool(tools, 'lexware_list_vouchers');
       await list.handler({});
@@ -148,24 +147,34 @@ describe('vouchers tool registry', () => {
         '/vouchers',
         undefined,
         {
-          page: undefined,
-          size: undefined,
+          page: 0,
+          size: 250,
           voucherNumber: undefined,
         },
       );
     });
 
-    it('no longer exposes the undocumented `voucherStatus` filter (removed in #65 — status filtering lives on /voucherlist)', async () => {
+    // #65 removed `voucherStatus` because the API ignores it on GET /vouchers. The
+    // param is back as a CLIENT-SIDE filter, so the guarantee that matters is no
+    // longer "absent from the schema" but "never sent as a query param" — asserted
+    // here and in voucher-tools.test.ts. Sending it would present a filter that
+    // silently returns unfiltered results, which is what #65 actually prevented.
+    it('exposes `voucherStatus` as a client-side filter without forwarding it to the API', async () => {
+      mockLexwareRequest.mockResolvedValue({ content: [], totalPages: 1 });
       const tools = await loadAndRegister();
       const list = getTool(tools, 'lexware_list_vouchers');
       const schema = z.object(list.schemaShape as z.ZodRawShape);
       const jsonSchema = z.toJSONSchema(schema, { io: 'input' }) as {
         properties?: Record<string, unknown>;
       };
-      expect(jsonSchema.properties).not.toHaveProperty('voucherStatus');
+      expect(jsonSchema.properties).toHaveProperty('voucherStatus');
       expect(jsonSchema.properties).toHaveProperty('voucherNumber');
-      // Non-strict Zod strips the now-unknown key before it reaches the handler.
-      expect(schema.parse({ voucherStatus: 'open', voucherNumber: 'RG-1' })).not.toHaveProperty('voucherStatus');
+      // `page` is gone: the tool paginates internally, so a caller-supplied page
+      // would be silently ignored rather than honoured.
+      expect(jsonSchema.properties).not.toHaveProperty('page');
+
+      await list.handler({ voucherStatus: 'open', voucherNumber: 'RG-1' });
+      expect(mockLexwareRequest.mock.calls[0][3]).not.toHaveProperty('voucherStatus');
     });
   });
 

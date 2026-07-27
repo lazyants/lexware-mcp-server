@@ -283,6 +283,17 @@ With an environment variable instead:
 
 `lexware_list_vouchers`, `lexware_get_voucher`, `lexware_create_voucher`, `lexware_update_voucher`, `lexware_upload_voucher_file`, `lexware_deeplink_voucher`
 
+`lexware_list_vouchers` fetches all pages itself and returns
+`{ content, totalCount, fetchedPages, truncated }` — `size` sets the per-request batch size, not a
+result count, and there is no `page` param. `voucherNumber` is filtered by the API; `voucherStatus`,
+`contactName` (SQL-style `%`/`_` wildcards), `voucherDateFrom`, `voucherDateTo` and `hasOpenAmount`
+are applied client-side, because the Lexware API ignores status filtering on this endpoint. Paging
+stops after 100 requests, with `truncated: true` marking a result set that was cut short.
+
+`lexware_get_voucher` normalizes `voucherStatus` to lowercase and retries a 404 three times
+(1 s / 2 s / 4 s) to cover the indexing delay after an upload; if the voucher is still missing it
+returns `{ voucherId, status: "processing", message }`. Other failures are reported as errors.
+
 ### Payments (1 tool) — bookkeeping
 
 `lexware_get_payments`
