@@ -59,10 +59,13 @@ afterEach(() => {
 // lexwareUpload — lexware-client.test.ts covers the rest of its request plumbing
 // (headers, the `type` part, error redaction).
 describe('lexwareUpload MIME guard and body shape', () => {
-  // Regression test for #67: `form-data` escapes the field name and filename but
-  // NOT contentType — it writes it into the multipart part header verbatim. Reject,
-  // never silently strip, so the caller sees its own mistake instead of a mangled
-  // upload.
+  // Regression test for #67. The `form-data` package escaped the field name and
+  // filename but NOT contentType, writing it into the part header verbatim. That
+  // package is gone (#74.1) and axios now strips CR/LF from a part's Content-Type,
+  // so this case no longer guards a live injection sink — it pins the CONTRACT:
+  // reject a malformed value loudly rather than silently stripping or coercing it,
+  // so the caller sees its own mistake instead of a mangled upload. See
+  // schemas/common.ts for why the range stays 0x20-0x7E.
   it('rejects a contentType carrying a CRLF header-injection payload — never reaches client.request', async () => {
     const { lexwareUpload } = await import('../services/lexware.js');
     await expect(

@@ -53,17 +53,26 @@ export function downloadFallbackName(resource: string, contentType: string): str
 // `type/subtype` regex would reject legitimate values the sink itself accepts
 // (e.g. `application/pdf; charset=utf-8`), so the parameter tail is deliberately
 // permissive about STRUCTURE — but every character in it is constrained to the
-// printable-ASCII range 0x20-0x7E, not merely "not CR/LF". Two reasons the tail
-// can't just exclude `\r`/`\n`: (1) that is the actual injection sink — `form-data`'s
-// `_getContentType` writes `contentType` into the multipart part header VERBATIM
-// (it escapes the field name and filename via `escapeHeaderParam`, but not this
-// value — §1.3a) — and a tab/NUL/other control byte is just as injectable as CR/LF
-// in a raw header block; (2) post-migration, the Blob constructor's own `type`
-// normalization blanks the ENTIRE type to "" on ANY character outside
-// 0x20-0x7E (§1.3b), not just CR/LF, so a narrower guard would let through values
-// that still silently degrade to `application/octet-stream` — recreating the exact
-// failure this guard exists to prevent. Matching Blob's own filter range exactly is
-// what closes that gap.
+// printable-ASCII range 0x20-0x7E, not merely "not CR/LF". Two reasons, one
+// historical and one current:
+//
+// (1) WHY THE GUARD EXISTS (historical, #67). The upload path then used the
+//     `form-data` package, whose `_getContentType` wrote `contentType` into the
+//     multipart part header VERBATIM — it escaped the field name and filename via
+//     `escapeHeaderParam` but not this value — so a CR/LF payload injected real
+//     headers, and a tab/NUL/other control byte was just as injectable in a raw
+//     header block. That package is GONE (#74.1): uploads now build a native
+//     `FormData`/`Blob` and axios serializes them, and axios strips `\r`/`\n` from
+//     a part's Content-Type itself (`helpers/formDataToStream.js`). Do not read
+//     this clause as describing today's sink — it does not.
+//
+// (2) WHY THE RANGE IS STILL 0x20-0x7E (current, and load-bearing). The `Blob`
+//     constructor's own `type` normalization blanks the ENTIRE type to "" on ANY
+//     character outside 0x20-0x7E, not just CR/LF (§1.3b). A guard narrowed to
+//     CR/LF would therefore admit values that silently degrade to
+//     `application/octet-stream` — recreating the exact silent-degradation failure
+//     this guard exists to prevent. Matching Blob's own filter range is what closes
+//     that gap, and it is the reason the range must not be relaxed.
 //
 // Shared by the MCP input boundary (MimeTypeSchema below) and the service-layer
 // sink guard (assertValidMimeType in services/lexware.ts) — one exported regex so
