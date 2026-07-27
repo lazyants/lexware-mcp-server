@@ -16,6 +16,30 @@ updates:
     ignore:
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # No published typescript-eslint accepts TypeScript 7 — its peer range is
+      # still `>=4.8.4 <6.1.0` as of 8.65.0, so a major bump fails `npm ci` with
+      # ERESOLVE before lint/build/test run. Remove this rule as the first step
+      # of issue #95.
+      #
+      # ACCEPTED RESIDUAL RISK: `ignore` has no `applies-to` key (that parameter
+      # exists only on `groups`), so this cannot be scoped to version updates.
+      # Per GitHub's Dependabot options reference, `ignore` also changes how
+      # SECURITY-update PRs are created, so were a CVE to need a TypeScript major
+      # bump, this rule would suppress that PR too.
+      #
+      # Two reasons that is acceptable here, in order of weight:
+      #   1. Dependabot security updates are currently DISABLED repo-wide
+      #      (`GET /repos/.../automated-security-fixes` -> {"enabled": false}),
+      #      so no security-update PR is opened for ANY dependency regardless of
+      #      this rule. Tracked separately in #99 — if that is turned on, re-read
+      #      this rule, because point 2 becomes the only thing carrying it.
+      #   2. `typescript` is a devDependency — the compiler, never shipped to
+      #      consumers (runtime deps are @modelcontextprotocol/sdk, axios, zod).
+      #      Note this bounds CONSUMER exposure, not build-time exposure: a
+      #      compromised compiler still runs over our source at release time.
+      # Minor and patch updates are unaffected either way. Revisit via #95.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
