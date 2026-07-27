@@ -55,9 +55,15 @@ interface ParsedPart {
 }
 
 // Extracts the `boundary` parameter from a `multipart/form-data; boundary=…`
-// Content-Type header. Never hardcode the boundary value itself — axios mints a
-// fresh one per attempt (§0.2 of the plan; node_modules/axios/lib/helpers/
-// formDataToStream.js:72-73).
+// Content-Type header. Never hardcode the boundary value, and never assert
+// anything about whether it changes: axios writes the resolved Content-Type back
+// onto config.headers, then on retry tries to REUSE that boundary via
+// `headers.getContentType(/boundary=([-_\w\d]{10,70})/i)` (adapters/http.js:750).
+// That match currently fails only because axios's own tag `axios-1.18.1-boundary-…`
+// contains dots, which are outside `[-_\w\d]` — so a dotless version tag would
+// make the boundary stable across attempts. Either way the body is rebuilt fresh
+// and stays correct, which is why this test asserts framing and content rather
+// than boundary identity.
 function extractBoundary(contentType: string): string {
   const match = /boundary=([^;]+)/i.exec(contentType);
   if (!match) throw new Error(`content-type carries no boundary: ${contentType}`);
@@ -92,6 +98,10 @@ function parseMultipart(body: Buffer, boundary: string): ParsedPart[] {
     // CRLF_BYTES), immediately followed by the next marker (or the footer).
     const chunk = body.subarray(positions[i] + marker.length + 2, positions[i + 1] - 2);
     const headerEnd = chunk.indexOf('\r\n\r\n');
+    // Not a vacuous-pass guard — a missing terminator yields one garbage part and
+    // the toHaveLength(2) assertion still fails. This only makes that failure
+    // legible instead of baffling.
+    if (headerEnd === -1) throw new Error(`multipart part ${i} has no header terminator`);
     const headerBlock = chunk.subarray(0, headerEnd).toString('latin1');
     const content = chunk.subarray(headerEnd + 4);
     const dispositionMatch = /name="([^"]*)"(?:; filename="([^"]*)")?/.exec(headerBlock);
@@ -120,7 +130,6 @@ describe('lexware upload 429 retry — real HTTP stack (#89)', () => {
   const originalEnv = process.env.LEXWARE_API_TOKEN;
 
   let server: http.Server;
-  let requestCount = 0;
   const receivedRequests: RecordedRequest[] = [];
 
   beforeAll(async () => {
@@ -137,8 +146,7 @@ describe('lexware upload 429 retry — real HTTP stack (#89)', () => {
           headers: req.headers,
           body: Buffer.concat(chunks),
         });
-        requestCount += 1;
-        if (requestCount === 1) {
+        if (receivedRequests.length === 1) {
           res.writeHead(429, { 'retry-after': '0', 'content-type': 'application/json' });
           res.end(JSON.stringify({}));
         } else {
@@ -176,7 +184,6 @@ describe('lexware upload 429 retry — real HTTP stack (#89)', () => {
     // caches (tokenPromise, clientPromise, webhookKeyCache). Dynamic import
     // after reset, inside the test below, is the existing repo pattern.
     vi.resetModules();
-    requestCount = 0;
     receivedRequests.length = 0;
     process.env.LEXWARE_API_TOKEN = TEST_TOKEN;
     mockGetPassword.mockReset().mockResolvedValue(undefined);
@@ -194,15 +201,29 @@ describe('lexware upload 429 retry — real HTTP stack (#89)', () => {
     // the proof the interceptor took the retry branch rather than the
     // isStreamBody bail-out (:185), which rejects without re-requesting.
     expect(receivedRequests).toHaveLength(2);
-    const [attempt1, attempt2] = receivedRequests;
 
-    for (const attempt of [attempt1, attempt2]) {
+    // Derive everything each attempt needs once, so the per-attempt assertions
+    // below read as intent rather than as repeated header casts and re-parses.
+    const attempts = receivedRequests.map((attempt) => {
+      const contentType = attempt.headers['content-type'] as string;
+      const boundary = extractBoundary(contentType);
+      return {
+        attempt,
+        contentType,
+        boundary,
+        bodyStr: attempt.body.toString('latin1'),
+        parts: parseMultipart(attempt.body, boundary),
+      };
+    });
+
+    for (const { attempt, contentType, boundary, bodyStr, parts } of attempts) {
       // Assertion 1: request line and credentials, asserted on BOTH attempts —
       // a retry that replays a perfect body to the wrong path/method, or drops
       // the bearer token, is invisible to every body-level assertion below.
       expect(attempt.method).toBe('POST');
       expect(attempt.url).toBe('/v1/files');
       expect(attempt.headers.authorization).toBe(`Bearer ${TEST_TOKEN}`);
+      expect(stripBoundaryParam(contentType)).toBe('multipart/form-data');
 
       // Assertion 4: content-length equals that attempt's OWN received bytes.
       expect(Number(attempt.headers['content-length'])).toBe(attempt.body.length);
@@ -210,23 +231,19 @@ describe('lexware upload 429 retry — real HTTP stack (#89)', () => {
       // Assertion 2: content-type carries boundary=B, and the body is framed by
       // that same B — starts with "--B\r\n", ends with "--B--\r\n". Catches a
       // stale header boundary and a dropped footer.
-      const boundary = extractBoundary(attempt.headers['content-type'] as string);
-      const bodyStr = attempt.body.toString('latin1');
-      expect(bodyStr.startsWith(`--${boundary}\r\n`)).toBe(true);
-      expect(bodyStr.endsWith(`--${boundary}--\r\n`)).toBe(true);
-    }
+      expect(bodyStr.startsWith(`--${boundary}\r\n`), 'body must open with the boundary from its own content-type').toBe(true);
+      expect(bodyStr.endsWith(`--${boundary}--\r\n`), 'body must end with the terminating boundary footer').toBe(true);
 
-    // Assertion 3: each attempt's body parses into exactly the expected parts.
-    const parts1 = parseMultipart(attempt1.body, extractBoundary(attempt1.headers['content-type'] as string));
-    const parts2 = parseMultipart(attempt2.body, extractBoundary(attempt2.headers['content-type'] as string));
-
-    for (const parts of [parts1, parts2]) {
+      // Assertion 3: the body parses into exactly the expected parts.
       expect(parts).toHaveLength(2);
       const filePart = parts.find((p) => p.name === 'file');
       const typePart = parts.find((p) => p.name === 'type');
       expect(filePart?.filename).toBe('report.pdf');
       expect(filePart?.contentType).toBe('application/pdf');
-      expect(filePart?.body.equals(fileContent)).toBe(true);
+      // latin1 is byte-lossless, so this is the same assertion as Buffer.equals()
+      // but prints an actual diff on failure instead of "expected false to be true".
+      // This is the assertion most likely to fail on a real regression.
+      expect(filePart?.body.toString('latin1')).toBe(fileContent.toString('latin1'));
       expect(typePart?.body.toString('latin1')).toBe('voucher');
     }
 
@@ -237,12 +254,14 @@ describe('lexware upload 429 retry — real HTTP stack (#89)', () => {
     // minting a fresh boundary (and therefore a different Content-Type) on
     // every attempt, so any of those would either be false or would merely pin
     // today's axios internals rather than correctness.
-    expect(normalizeParts(parts1)).toEqual(normalizeParts(parts2));
-    expect(attempt1.headers.authorization).toBe(attempt2.headers.authorization);
-    expect(stripBoundaryParam(attempt1.headers['content-type'] as string)).toBe(
-      stripBoundaryParam(attempt2.headers['content-type'] as string)
-    );
-    expect(stripBoundaryParam(attempt1.headers['content-type'] as string)).toBe('multipart/form-data');
+    // The load-bearing half: the two attempts carry the same parsed structure.
+    expect(normalizeParts(attempts[0].parts)).toEqual(normalizeParts(attempts[1].parts));
+    // The named-header half. Both are already pinned to literals per attempt
+    // above, so these are entailed rather than additive — kept because D5
+    // enumerates them, and because they state the cross-attempt intent
+    // explicitly rather than leaving a reader to infer it.
+    expect(attempts[0].attempt.headers.authorization).toBe(attempts[1].attempt.headers.authorization);
+    expect(stripBoundaryParam(attempts[0].contentType)).toBe(stripBoundaryParam(attempts[1].contentType));
 
     // Assertion 7: the call resolves with the 200 payload.
     expect(result).toEqual({ id: 'file-123' });
