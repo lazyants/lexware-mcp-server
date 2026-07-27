@@ -10,16 +10,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0] — 2026-07-27
+
+### Removed
+
+- **BREAKING** — `lexware_upload_file` and `lexware_upload_voucher_file` no
+  longer accept `contentType: ""`. Up to 4.2.0 an empty string reached the
+  `contentType || 'application/pdf'` fallback and uploaded as a PDF; it is now
+  rejected at the MCP input boundary. The constraint is a `pattern` on the
+  published input schema, so a client that pre-validates against `tools/list`
+  will refuse to send the call rather than have it fail server-side. **Omitting
+  the field is unchanged and still defaults to `application/pdf`** — pass no
+  `contentType` instead of an empty one. This is the only breaking change in
+  5.0.0 (#88).
+
 ### Changed
 
-- `lexware_upload_file` and `lexware_upload_voucher_file` now reject an empty
-  `contentType` string at the MCP input boundary instead of silently
-  substituting the default. Both layers now share one grammar — the exported
+- `contentType` on both upload tools is now validated at the MCP input boundary
+  rather than only at the service-layer sink, so a malformed value is refused
+  before any request is built and the constraint is discoverable in the
+  published input schema. The two layers share one grammar — the exported
   `MIME_TYPE_RE` in `src/schemas/common.ts`, used by the boundary's
-  `MimeTypeSchema` and by the service-layer guard directly — and that grammar
-  has always rejected `''`; previously the `contentType || 'application/pdf'`
-  fallback intercepted it before the sink guard ever saw it. Omitting the
-  field still defaults to `application/pdf` as before (#88).
+  `MimeTypeSchema` and by the service-layer guard directly — so they can no
+  longer drift apart. That grammar has always rejected `''`; the fallback
+  simply intercepted it first, which is what makes this a breaking change
+  (see Removed) (#88).
+- Dependabot no longer opens `typescript` semver-major pull requests. The
+  installed `typescript-eslint` declares a `typescript` peer range that
+  excludes `^7`, so a TypeScript 7 bump fails `npm ci` with `ERESOLVE` before
+  the build or tests can run. Tracked in #95, whose first instruction is to
+  delete the ignore rule once a `typescript-eslint` release admits `^7` (#96).
+
+### Fixed
+
+- Corrected the README's rate-limiting note, which claimed file uploads were
+  excluded from the automatic 429 retry. They are not: since the multipart
+  body became a native `FormData`, it is rebuilt fresh on every attempt and
+  replays safely. Locked in by a real-socket regression test that drives the
+  actual axios HTTP adapter: each attempt's file part is compared byte-exactly
+  against the source bytes, and the two attempts' parsed multipart structures
+  must be equal. Raw request-body equality is deliberately not asserted — axios
+  mints a fresh multipart boundary per attempt, so the bodies legitimately
+  differ byte-for-byte (#89).
 
 ## [4.2.0] — 2026-07-27
 
@@ -415,6 +447,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[5.0.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.0.0
 [4.2.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v4.2.0
 [4.1.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v4.1.0
 [4.0.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v4.0.0
