@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { lexwareRequest, lexwareUpload } from '../services/lexware.js';
-import { handleToolRequest } from '../helpers.js';
+import { handleToolRequest, withProcessingRetry, isNotFound } from '../helpers.js';
 import { UuidSchema, PaginationParams, MimeTypeSchema } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
 import { VOUCHER_STATUSES, normalizeVoucherResponse } from './_vouchers.js';
@@ -30,7 +30,10 @@ export function registerVoucherTools(server: McpServer): void {
     description:
       'Retrieve a bookkeeping voucher by ID from Lexware. The voucherStatus field in the ' +
       'response is normalized to its canonical lowercase form. Known values: ' +
-      `${VOUCHER_STATUSES.join(', ')}.`,
+      `${VOUCHER_STATUSES.join(', ')}. ` +
+      'Retries up to 3 times (1 s / 2 s / 4 s) on 404 to absorb the indexing delay after an ' +
+      'upload; if the voucher is still missing, returns { voucherId, status: "processing", ' +
+      'message } rather than an error. Other failures are reported as errors.',
     inputSchema: z.object({
       id: UuidSchema.describe('Voucher UUID'),
     }),
@@ -41,8 +44,23 @@ export function registerVoucherTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    const voucher = await lexwareRequest<Record<string, unknown>>('GET', `/vouchers/${params.id}`);
-    return normalizeVoucherResponse(voucher);
+    try {
+      return await withProcessingRetry(async () => {
+        const voucher = await lexwareRequest<Record<string, unknown>>('GET', `/vouchers/${params.id}`);
+        return normalizeVoucherResponse(voucher);
+      });
+    } catch (err) {
+      // ONLY an exhausted 404 becomes the soft "processing" answer. Reporting a 401
+      // or a 500 as "still processing" would tell the caller to wait for something
+      // that is never going to arrive, and hide the real fault — so rethrow and let
+      // handleToolRequest surface it as a tool error.
+      if (!isNotFound(err)) throw err;
+      return {
+        voucherId: params.id as string,
+        status: 'processing',
+        message: 'Voucher is still being processed by Lexware — please retry in 30 seconds.',
+      };
+    }
   }));
 
   server.registerTool('lexware_update_voucher', {

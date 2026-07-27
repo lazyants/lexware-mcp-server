@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { z } from 'zod';
 import { normalizeVoucherStatus, VOUCHER_STATUSES } from '../tools/_vouchers.js';
 import { createServer } from '../server.js';
@@ -130,5 +130,63 @@ describe('lexware_get_voucher', () => {
     expect(sc.voucherNumber).toBe('RE-2024-001');
     expect(sc.totalGrossAmount).toBe(119.0);
     expect(sc.version).toBe(2);
+  });
+});
+
+// ─── lexware_get_voucher — post-upload retry ──────────────────────────────────
+
+describe('lexware_get_voucher — retry behaviour', () => {
+  let handler: (params: unknown) => Promise<any>;
+
+  const notFound = () => Object.assign(new Error('Not Found'), { cause: { response: { status: 404 } } });
+
+  beforeEach(() => {
+    mocks.lexwareRequest.mockReset();
+    vi.useFakeTimers();
+    handler = captureTools(registerVoucherTools).get('lexware_get_voucher')!.handler;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('returns the soft processing response after exhausting 3 retries on 404', async () => {
+    mocks.lexwareRequest.mockRejectedValue(notFound());
+
+    const promise = handler({ id: VALID_UUID });
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent.status).toBe('processing');
+    expect(result.structuredContent.voucherId).toBe(VALID_UUID);
+    expect(result.structuredContent.message).toContain('retry');
+    expect(mocks.lexwareRequest).toHaveBeenCalledTimes(3);
+  });
+
+  it('returns the voucher on the second attempt after an initial 404', async () => {
+    mocks.lexwareRequest
+      .mockRejectedValueOnce(notFound())
+      .mockResolvedValue({ id: VALID_UUID, voucherStatus: 'OPEN', version: 1 });
+
+    const promise = handler({ id: VALID_UUID });
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent.voucherStatus).toBe('open');
+    expect(mocks.lexwareRequest).toHaveBeenCalledTimes(2);
+  });
+
+  // A 500/401 reported as "still processing" would send the caller into a wait for
+  // something that never arrives, and bury the real fault.
+  it('surfaces a non-404 as a tool error instead of a processing response', async () => {
+    mocks.lexwareRequest.mockRejectedValue(new Error('Internal Server Error'));
+
+    const result = await handler({ id: VALID_UUID });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('Internal Server Error');
+    expect(mocks.lexwareRequest).toHaveBeenCalledTimes(1);
   });
 });
