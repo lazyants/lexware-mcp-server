@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.1] — 2026-07-27
+
 ### Changed
 
 - `lexware_upload_file` and `lexware_upload_voucher_file` now reject an empty
@@ -20,6 +22,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   has always rejected `''`; previously the `contentType || 'application/pdf'`
   fallback intercepted it before the sink guard ever saw it. Omitting the
   field still defaults to `application/pdf` as before (#88).
+- Dependabot no longer opens `typescript` semver-major pull requests. The
+  installed `typescript-eslint` declares a `typescript` peer range that
+  excludes `^7`, so a TypeScript 7 bump fails `npm ci` with `ERESOLVE` before
+  the build or tests can run. Tracked in #95, whose first instruction is to
+  delete the ignore rule once a `typescript-eslint` release admits `^7` (#96).
+
+### Fixed
+
+- Corrected the README's rate-limiting note, which claimed file uploads were
+  excluded from the automatic 429 retry. They are not: since the multipart
+  body became a native `FormData`, it is rebuilt fresh on every attempt and
+  replays safely. Locked in by a real-socket regression test that drives the
+  actual axios HTTP adapter and asserts both attempts byte-for-byte (#89).
 
 ## [4.2.0] — 2026-07-27
 
@@ -415,6 +430,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[4.2.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v4.2.1
 [4.2.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v4.2.0
 [4.1.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v4.1.0
 [4.0.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v4.0.0
