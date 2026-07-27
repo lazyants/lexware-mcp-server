@@ -14,9 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `lexware_upload_file` and `lexware_upload_voucher_file` now reject an empty
   `contentType` string at the MCP input boundary instead of silently
-  substituting the default. The boundary and the sink guard now share one
-  grammar (`MimeTypeSchema` in `src/schemas/common.ts`), and that grammar has
-  always rejected `''` — previously the `contentType || 'application/pdf'`
+  substituting the default. Both layers now share one grammar — the exported
+  `MIME_TYPE_RE` in `src/schemas/common.ts`, used by the boundary's
+  `MimeTypeSchema` and by the service-layer guard directly — and that grammar
+  has always rejected `''`; previously the `contentType || 'application/pdf'`
   fallback intercepted it before the sink guard ever saw it. Omitting the
   field still defaults to `application/pdf` as before (#88).
 
