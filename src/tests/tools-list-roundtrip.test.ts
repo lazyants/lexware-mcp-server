@@ -5,6 +5,9 @@ import { createServer } from '../server.js';
 import { registerInvoiceTools } from '../tools/invoices.js';
 import { registerArticleTools } from '../tools/articles.js';
 import { registerEventSubscriptionTools } from '../tools/event-subscriptions.js';
+import { registerFileTools } from '../tools/files.js';
+import { registerVoucherTools } from '../tools/vouchers.js';
+import { MIME_TYPE_RE } from '../schemas/common.js';
 
 // Regression guard for the fleet's Zod-4 `optin` bug: schemas built with
 // `z.preprocess()` get tagged `optin: "optional"` internally, which silently
@@ -33,7 +36,7 @@ async function connectClient(register: (s: Server) => void): Promise<Client> {
 interface JsonSchemaTool {
   name: string;
   inputSchema: {
-    properties?: Record<string, { description?: string }>;
+    properties?: Record<string, { description?: string; pattern?: string }>;
     required?: string[];
   };
 }
@@ -104,4 +107,29 @@ describe('tools/list round-trip: required[] and describe() propagation', () => {
       await client.close();
     }
   });
+
+  // D4 (#88): MimeTypeSchema.optional() must keep the emitted tools/list JSON
+  // Schema byte-identical to what the old `z.string().optional().describe(...)`
+  // produced — same description, same pattern (sourced from the shared
+  // MIME_TYPE_RE, not a hardcoded copy), and contentType still correctly absent
+  // from required[] (the zod-4 `optin` trap this file exists to catch).
+  it.each([
+    ['lexware_upload_file', registerFileTools, ['fileName', 'contentBase64']],
+    ['lexware_upload_voucher_file', registerVoucherTools, ['id', 'fileName', 'contentBase64']],
+  ] as const)(
+    '%s: contentType carries the shared MIME pattern/description and stays out of required[]',
+    async (name, register, required) => {
+      const client = await connectClient(register);
+      try {
+        const tool = await findTool(client, name);
+        expect(tool.inputSchema.properties?.contentType?.description).toBe(
+          'MIME type, defaults to application/pdf'
+        );
+        expect(tool.inputSchema.properties?.contentType?.pattern).toBe(MIME_TYPE_RE.source);
+        expect(tool.inputSchema.required).toEqual(required);
+      } finally {
+        await client.close();
+      }
+    }
+  );
 });

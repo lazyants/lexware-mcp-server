@@ -3,6 +3,7 @@ import { get as httpsGet } from 'node:https';
 import { createPublicKey } from 'node:crypto';
 import { LEXWARE_API_BASE, LEXWARE_APP_BASE, MAX_RETRIES, REQUEST_TIMEOUT } from '../constants.js';
 import { LexwareLegacyError, LexwareStandardError } from '../types/common.js';
+import { MIME_TYPE_RE } from '../schemas/common.js';
 
 const KEYRING_SERVICE_DEFAULT = 'lexware-mcp';
 const KEYRING_ACCOUNT = 'api-token';
@@ -391,29 +392,16 @@ export async function lexwareRequest<T = unknown>(
   }
 }
 
-// Parameter-tolerant MIME `type/subtype[; params]` grammar (#67). A STRICT
-// `type/subtype` regex would reject legitimate values the sink itself accepts
-// (e.g. `application/pdf; charset=utf-8`), so the parameter tail is deliberately
-// permissive about STRUCTURE — but every character in it is constrained to the
-// printable-ASCII range 0x20-0x7E, not merely "not CR/LF". Two reasons the tail
-// can't just exclude `\r`/`\n`: (1) that is the actual injection sink — `form-data`'s
-// `_getContentType` writes `contentType` into the multipart part header VERBATIM
-// (it escapes the field name and filename via `escapeHeaderParam`, but not this
-// value — §1.3a) — and a tab/NUL/other control byte is just as injectable as CR/LF
-// in a raw header block; (2) post-migration, the Blob constructor's own `type`
-// normalization blanks the ENTIRE type to "" on ANY character outside
-// 0x20-0x7E (§1.3b), not just CR/LF, so a narrower guard would let through values
-// that still silently degrade to `application/octet-stream` — recreating the exact
-// failure this guard exists to prevent. Matching Blob's own filter range exactly is
-// what closes that gap.
-const MIME_TYPE_RE = /^[A-Za-z0-9!#$%&'*+.^_`|~-]+\/[A-Za-z0-9!#$%&'*+.^_`|~-]+(;[\x20-\x7E]*)?$/;
-
 // Reject a malformed upload contentType before it reaches the multipart part —
 // never silently strip it, which would hide the caller's error. Post-migration to
 // native FormData/Blob (below), the sink would otherwise degrade a malformed value
 // silently to `application/octet-stream` (Blob blanks any `type` containing a char
 // outside U+0020–U+007E rather than throwing — §1.3b) instead of failing loudly, so
 // this guard is what actually surfaces the caller's mistake.
+//
+// The grammar (MIME_TYPE_RE) lives in schemas/common.ts, shared with the MCP input
+// boundary's MimeTypeSchema (#88) — this function stays here because it owns a
+// sink-specific error-message contract that tests pin byte-for-byte.
 function assertValidMimeType(contentType: string): void {
   if (!MIME_TYPE_RE.test(contentType)) {
     throw new Error(`Invalid contentType for upload: ${JSON.stringify(contentType)}`);

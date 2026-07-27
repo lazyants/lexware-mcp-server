@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { lexwareRequest, lexwareUpload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
-import { UuidSchema } from '../schemas/common.js';
+import { UuidSchema, MimeTypeSchema } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
 import { downloadFileResult } from './_download.js';
 
@@ -13,7 +13,7 @@ export function registerFileTools(server: McpServer): void {
     inputSchema: z.object({
       fileName: z.string().describe('Name of the file to upload'),
       contentBase64: z.string().describe('Base64-encoded file content'),
-      contentType: z.string().optional().describe('MIME type, defaults to application/pdf'),
+      contentType: MimeTypeSchema.optional(),
     }),
     annotations: {
       readOnlyHint: false,
