@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm package: [`@lazyants/lexware-mcp-server`](https://www.npmjs.com/package/@lazyants/lexware-mcp-server)
 - MCP Registry: [`io.github.lazyants/lexware`](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.lazyants/lexware)
 
+## [Unreleased]
+
+### Changed
+
+- `lexware_upload_file` and `lexware_upload_voucher_file` now reject an empty
+  `contentType` string at the MCP input boundary instead of silently
+  substituting the default. The boundary and the sink guard now share one
+  grammar (`MimeTypeSchema` in `src/schemas/common.ts`), and that grammar has
+  always rejected `''` — previously the `contentType || 'application/pdf'`
+  fallback intercepted it before the sink guard ever saw it. Omitting the
+  field still defaults to `application/pdf` as before (#88).
+
 ## [4.2.0] — 2026-07-27
 
 ### Security

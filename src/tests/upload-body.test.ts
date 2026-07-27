@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { MIME_TYPE_RE, MimeTypeSchema } from '../schemas/common.js';
 
 // GOTCHA: vi.mock is hoisted above top-level const declarations. Use vi.hoisted()
 // to create mock fns that are accessible inside the vi.mock factory.
-const { mockRequest, mockCreate } = vi.hoisted(() => ({
+const { mockRequest, mockCreate, mockGetPassword } = vi.hoisted(() => ({
   mockRequest: vi.fn(),
   mockCreate: vi.fn(),
+  mockGetPassword: vi.fn<(signal?: AbortSignal) => Promise<string | undefined>>().mockResolvedValue(undefined),
 }));
 
 vi.mock('axios', async (importOriginal) => {
@@ -20,6 +22,15 @@ vi.mock('axios', async (importOriginal) => {
   };
 });
 
+// lexwareUpload resolves the client and token BEFORE the MIME guard runs
+// (`Promise.all([getClient(), getToken()])` ahead of `assertValidMimeType` —
+// src/services/lexware.ts), so every sink-side case below would otherwise hit a
+// real OS keyring read (5s timeout on a locked store). Mirror the established
+// hermeticity pattern at lexware-client.test.ts:13-19.
+vi.mock('@napi-rs/keyring', () => ({
+  AsyncEntry: vi.fn(function () { return { getPassword: mockGetPassword }; } as any),
+}));
+
 // Focused on the #67 MIME guard and the #74.1 native-FormData body shape in
 // lexwareUpload — lexware-client.test.ts covers the rest of its request plumbing
 // (headers, the `type` part, error redaction).
@@ -31,6 +42,7 @@ describe('lexwareUpload MIME guard and body shape', () => {
     process.env.LEXWARE_API_TOKEN = 'test-token';
     mockRequest.mockReset();
     mockCreate.mockClear();
+    mockGetPassword.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -123,5 +135,71 @@ describe('lexwareUpload MIME guard and body shape', () => {
     expect(filePart).toBeInstanceOf(Blob);
     expect(filePart.type).toBe('application/pdf');
     expect(await filePart.text()).toBe('pdf-bytes');
+  });
+});
+
+// D1/D2 (#88): MimeTypeSchema (the MCP input boundary) and assertValidMimeType
+// (the sink guard, exercised here via lexwareUpload) are built on ONE exported
+// regex (MIME_TYPE_RE). This is the actual anti-drift mechanism — a single
+// (value, shouldPass) table driven through both layers in one test, so adding a
+// row automatically exercises both without separate per-layer lists.
+describe('D2: cross-layer agreement — boundary MimeTypeSchema vs sink assertValidMimeType', () => {
+  const CROSS_LAYER_CORPUS: Array<[value: string, shouldPass: boolean]> = [
+    ['application/pdf', true], // every current call site
+    ['application/pdf; charset=utf-8', true], // §1.3(b) — Blob preserves it
+    ['application/pdf\r\nX-Injected: evil', false], // the original #67 injection
+    ['application/pdf;\tcharset=utf-8', false], // tab is outside 0x20-0x7E
+    ['not-a-mime-type', false], // no '/'
+    ['application/pdf\x00', false], // NUL — non-CR/LF control byte
+    ['application/pdf; x=ü', false], // non-ASCII in the parameter tail
+    ['text/plain', true], // second plain type — guards an accidental application/-only anchor
+    ['', false], // D3: '' is rejected at both layers, not silently defaulted
+  ];
+
+  it.each(CROSS_LAYER_CORPUS)(
+    '%s -> shouldPass=%s agrees at the boundary and the sink',
+    async (value, shouldPass) => {
+      const boundaryResult = MimeTypeSchema.safeParse(value);
+      expect(boundaryResult.success).toBe(shouldPass);
+
+      if (shouldPass) {
+        mockRequest.mockResolvedValue({ data: { id: 'ok' } });
+      }
+      const { lexwareUpload } = await import('../services/lexware.js');
+      const sinkAccepted = await lexwareUpload('/files', Buffer.from('x'), 'a.pdf', value).then(
+        () => true,
+        () => false,
+      );
+      expect(sinkAccepted).toBe(shouldPass);
+    },
+  );
+
+  it('MIME_TYPE_RE is stateless (no g/y flags) — a shared regex object cannot leak match state between layers', () => {
+    expect(MIME_TYPE_RE.global).toBe(false);
+    expect(MIME_TYPE_RE.sticky).toBe(false);
+    MIME_TYPE_RE.test('application/pdf');
+    expect(MIME_TYPE_RE.lastIndex).toBe(0);
+    MIME_TYPE_RE.test('not-a-mime-type');
+    expect(MIME_TYPE_RE.lastIndex).toBe(0);
+  });
+
+  // The agreement invariant above holds for PRIMITIVE STRINGS ONLY. z.string()
+  // rejects a non-primitive-string input outright, while RegExp.test coerces its
+  // argument to a string first — assertValidMimeType is a thin `MIME_TYPE_RE.test`
+  // wrapper (src/services/lexware.ts), so this coercion is the same one the sink
+  // would perform. The boundary is therefore strictly STRICTER than the sink here,
+  // never looser — the fail-safe direction — so do not generalize the corpus above
+  // into an unqualified "the two layers always agree".
+  it('rejects an array at the boundary, even though String(["application/pdf"]) coerces to a value the sink regex would accept', () => {
+    const arrayValue = ['application/pdf'] as unknown as string;
+    expect(MimeTypeSchema.safeParse(arrayValue).success).toBe(false);
+    expect(MIME_TYPE_RE.test(arrayValue)).toBe(true);
+  });
+
+  it('rejects a boxed String at the boundary, even though the sink regex coerces and accepts it', () => {
+    // Deliberately a boxed String, not a primitive — see the invariant comment above.
+    const boxed = new String('application/pdf') as unknown as string;
+    expect(MimeTypeSchema.safeParse(boxed).success).toBe(false);
+    expect(MIME_TYPE_RE.test(boxed)).toBe(true);
   });
 });

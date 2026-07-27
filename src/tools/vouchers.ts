@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { lexwareRequest, lexwareUpload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
-import { UuidSchema, PaginationParams } from '../schemas/common.js';
+import { UuidSchema, PaginationParams, MimeTypeSchema } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
 
 export function registerVoucherTools(server: McpServer): void {
@@ -85,7 +85,7 @@ export function registerVoucherTools(server: McpServer): void {
       id: UuidSchema.describe('Voucher UUID'),
       fileName: z.string().describe('Name of the file to upload'),
       contentBase64: z.string().describe('Base64-encoded file content'),
-      contentType: z.string().optional().describe('MIME type, defaults to application/pdf'),
+      contentType: MimeTypeSchema.optional(),
     }),
     annotations: {
       readOnlyHint: false,
