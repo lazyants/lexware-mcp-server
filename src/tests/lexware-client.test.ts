@@ -555,5 +555,49 @@ describe('lexware client', () => {
       expect((thrown as Error).message).toMatch(/Lexware API error:/);
       expect(util.inspect(thrown, { depth: null })).not.toContain(TOKEN);
     });
+
+    // An all-zero arraybuffer decodes to NUL runs, which trim() does not strip.
+    it('lexwareDownload does not splice control bytes from a binary body into the message', async () => {
+      mockRequest.mockRejectedValue(tokenBearingError(new ArrayBuffer(8), 'Bad Request'));
+      const { lexwareDownload } = await import('../services/lexware.js');
+      const thrown = await lexwareDownload('/invoices/abc/file').then(
+        () => { throw new Error('expected rejection'); },
+        (err: unknown) => err,
+      );
+      expect((thrown as Error).message).toBe('Lexware API error: 400 Bad Request');
+    });
+
+    it('appends an unrecognized error body so the cause is not silently dropped', async () => {
+      // The real shape behind this: POST /files without the multipart `type` part
+      // returns 400 with neither `message` nor `IssueList`, and `source` is the only
+      // field naming the problem.
+      const body = {
+        i18nKey: 'bad_request_error',
+        source: "Required request parameter 'type' for method parameter type String is not present",
+      };
+      mockRequest.mockRejectedValue(tokenBearingError(body, 'Bad Request'));
+      const { lexwareUpload } = await import('../services/lexware.js');
+      const thrown = await lexwareUpload('/files', Buffer.from('x'), 'a.pdf', 'application/pdf').then(
+        () => { throw new Error('expected rejection'); },
+        (err: unknown) => err,
+      );
+      expect((thrown as Error).message).toContain('Lexware API error: 400 Bad Request');
+      expect((thrown as Error).message).toContain("Required request parameter 'type'");
+      // The body is the RESPONSE payload — appending it must not reintroduce the
+      // bearer token that sanitizeAxiosError strips from the chained cause.
+      expect(util.inspect(thrown, { depth: null })).not.toContain(TOKEN);
+    });
+
+    it('truncates an oversized error body instead of inlining the whole payload', async () => {
+      mockRequest.mockRejectedValue(tokenBearingError('x'.repeat(5000), 'Bad Gateway'));
+      const { lexwareRequest } = await import('../services/lexware.js');
+      const thrown = await lexwareRequest('GET', '/invoices').then(
+        () => { throw new Error('expected rejection'); },
+        (err: unknown) => err,
+      );
+      const { message } = thrown as Error;
+      expect(message).toContain('…');
+      expect(message.length).toBeLessThan(700);
+    });
   });
 });
