@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { lexwareRequest, lexwareUpload } from '../services/lexware.js';
+import { lexwareUpload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
 import { UuidSchema } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
@@ -43,22 +43,6 @@ export function registerFileTools(server: McpServer): void {
     },
   }, handleToolRequest(async (params) => {
     return downloadFileResult(`/files/${params.id}`, 'file');
-  }));
-
-  server.registerTool('lexware_get_file_status', {
-    title: 'Get File Status',
-    description: 'Get file metadata and processing status from Lexware.',
-    inputSchema: z.object({
-      id: UuidSchema.describe('File UUID'),
-    }),
-    annotations: {
-      readOnlyHint: true,
-      destructiveHint: false,
-      idempotentHint: true,
-      openWorldHint: true,
-    },
-  }, handleToolRequest(async (params) => {
-    return lexwareRequest('GET', `/files/${params.id}`);
   }));
 
   server.registerTool('lexware_deeplink_file', {

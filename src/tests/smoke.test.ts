@@ -32,8 +32,8 @@ describe('smoke tests', () => {
   // `index.ts` / `entry-*.ts` register from — so a tool silently dropped from
   // (or duplicated into) an entry's array fails here too, instead of this test
   // verifying its own hand-copied, independently-drifting list.
-  it('registers exactly 66 tools in full server', () => {
-    expect(registerAndCount(allToolRegistrars)).toBe(66);
+  it('registers exactly 65 tools in full server', () => {
+    expect(registerAndCount(allToolRegistrars)).toBe(65);
   });
 
   it('entry-sales registers 32 tools', () => {
@@ -52,7 +52,7 @@ describe('smoke tests', () => {
     expect(registerAndCount(referenceToolRegistrars)).toBe(5);
   });
 
-  it('entry-system registers 12 tools', () => {
-    expect(registerAndCount(systemToolRegistrars)).toBe(12);
+  it('entry-system registers 11 tools', () => {
+    expect(registerAndCount(systemToolRegistrars)).toBe(11);
   });
 });
