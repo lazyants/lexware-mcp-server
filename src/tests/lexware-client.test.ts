@@ -4,9 +4,18 @@ import { AxiosError, AxiosHeaders } from 'axios';
 
 // GOTCHA: vi.mock is hoisted above top-level const declarations. Use vi.hoisted()
 // to create mock fns that are accessible inside the vi.mock factory.
-const { mockRequest, mockCreate } = vi.hoisted(() => ({
+const { mockRequest, mockCreate, mockGetPassword } = vi.hoisted(() => ({
   mockRequest: vi.fn(),
   mockCreate: vi.fn(),
+  mockGetPassword: vi.fn<(signal?: AbortSignal) => Promise<string | undefined>>().mockResolvedValue(undefined),
+}));
+
+// GOTCHA: AsyncEntry is called with `new`, so the implementation must be a
+// regular function (not an arrow function), otherwise JS throws "not a
+// constructor". getPassword() is async (real AsyncEntry.getPassword returns
+// Promise<string | undefined>) so it can be bounded by an AbortSignal timeout.
+vi.mock('@napi-rs/keyring', () => ({
+  AsyncEntry: vi.fn(function () { return { getPassword: mockGetPassword }; } as any),
 }));
 
 // GOTCHA: Must use importOriginal to preserve AxiosError class — a plain mock
@@ -31,12 +40,15 @@ vi.mock('axios', async (importOriginal) => {
 
 describe('lexware client', () => {
   const originalEnv = process.env.LEXWARE_API_TOKEN;
+  const originalKeyringService = process.env.LEXWARE_KEYRING_SERVICE;
 
   beforeEach(() => {
     vi.resetModules();
     process.env.LEXWARE_API_TOKEN = 'test-token';
+    delete process.env.LEXWARE_KEYRING_SERVICE;
     mockRequest.mockReset();
     mockCreate.mockClear();
+    mockGetPassword.mockResolvedValue(undefined);
     const mockInstance = {
       request: mockRequest,
       interceptors: { response: { use: vi.fn() } },
@@ -50,15 +62,98 @@ describe('lexware client', () => {
     } else {
       delete process.env.LEXWARE_API_TOKEN;
     }
+    if (originalKeyringService !== undefined) {
+      process.env.LEXWARE_KEYRING_SERVICE = originalKeyringService;
+    } else {
+      delete process.env.LEXWARE_KEYRING_SERVICE;
+    }
   });
 
-  it('throws when LEXWARE_API_TOKEN is missing', async () => {
+  it('throws when LEXWARE_API_TOKEN is missing and keyring returns null', async () => {
     delete process.env.LEXWARE_API_TOKEN;
     const { lexwareRequest } = await import('../services/lexware.js');
     await expect(lexwareRequest('GET', '/profile')).rejects.toThrow('LEXWARE_API_TOKEN');
   });
 
-  it('missing-token error links to the lexware.de token page, never lexware.io', async () => {
+  it('recovers after a fixable token miss without restarting (no cached rejection)', async () => {
+    delete process.env.LEXWARE_API_TOKEN;
+    const { lexwareRequest } = await import('../services/lexware.js');
+    // First call: token missing everywhere → rejects.
+    await expect(lexwareRequest('GET', '/profile')).rejects.toThrow('LEXWARE_API_TOKEN');
+    // User stores the token after the first failure; a later call must succeed
+    // rather than replay the cached rejection.
+    process.env.LEXWARE_API_TOKEN = 'recovered-token';
+    mockRequest.mockResolvedValue({ data: { ok: true } });
+    await expect(lexwareRequest('GET', '/profile')).resolves.toEqual({ ok: true });
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer recovered-token' }),
+      })
+    );
+  });
+
+  it('uses keyring token when available, ignoring env var', async () => {
+    mockGetPassword.mockResolvedValue('keyring-token');
+    mockRequest.mockResolvedValue({ data: { ok: true } });
+    const { lexwareRequest } = await import('../services/lexware.js');
+    await lexwareRequest('GET', '/profile');
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer keyring-token' }),
+      })
+    );
+  });
+
+  it('uses LEXWARE_KEYRING_SERVICE as keyring service name', async () => {
+    const { AsyncEntry } = await import('@napi-rs/keyring');
+    process.env.LEXWARE_KEYRING_SERVICE = 'my-company';
+    mockGetPassword.mockResolvedValue('company-token');
+    mockRequest.mockResolvedValue({ data: {} });
+    const { lexwareRequest } = await import('../services/lexware.js');
+    await lexwareRequest('GET', '/profile');
+    expect(AsyncEntry).toHaveBeenCalledWith('my-company', 'api-token');
+  });
+
+  it('passes an AbortSignal timeout to the keyring getPassword call', async () => {
+    mockGetPassword.mockResolvedValue('keyring-token');
+    mockRequest.mockResolvedValue({ data: { ok: true } });
+    const { lexwareRequest } = await import('../services/lexware.js');
+    await lexwareRequest('GET', '/profile');
+    expect(mockGetPassword).toHaveBeenCalledWith(expect.any(AbortSignal));
+  });
+
+  it('falls back to LEXWARE_API_TOKEN when the keyring getPassword call times out', async () => {
+    // Simulate AsyncEntry rejecting once its AbortSignal fires, without
+    // waiting out the real KEYRING_TIMEOUT_MS in this test.
+    mockGetPassword.mockRejectedValue(new Error('The operation was aborted'));
+    process.env.LEXWARE_API_TOKEN = 'env-fallback-token';
+    mockRequest.mockResolvedValue({ data: { ok: true } });
+    const { lexwareRequest } = await import('../services/lexware.js');
+    await lexwareRequest('GET', '/profile');
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer env-fallback-token' }),
+      })
+    );
+  });
+
+  it('falls back to LEXWARE_API_TOKEN when the keyring module throws (headless)', async () => {
+    const { AsyncEntry } = await import('@napi-rs/keyring');
+    (AsyncEntry as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+      throw new Error('keyring unavailable: no libsecret');
+    });
+    process.env.LEXWARE_API_TOKEN = 'env-fallback-token';
+    mockRequest.mockResolvedValue({ data: { ok: true } });
+    const { lexwareRequest } = await import('../services/lexware.js');
+    await lexwareRequest('GET', '/profile');
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer env-fallback-token' }),
+      })
+    );
+  });
+
+  it('missing-token error links to the lexware.de token page, never lexware.io, and leaks no secret', async () => {
     delete process.env.LEXWARE_API_TOKEN;
     const { lexwareRequest } = await import('../services/lexware.js');
     const message = await lexwareRequest('GET', '/profile').then(
@@ -67,6 +162,127 @@ describe('lexware client', () => {
     );
     expect(message).toContain('https://app.lexware.de/addons/public-api');
     expect(message).not.toContain('lexware.io');
+    // The env token is deleted above and the message never echoes envValue
+    // regardless — assert defensively that no token-shaped value leaks.
+    expect(message).not.toContain('test-token');
+  });
+
+  it('redacts the Authorization header from a failed request error cause (no token leak when the error is logged)', async () => {
+    mockRequest.mockImplementation(() => {
+      const err = new AxiosError('boom');
+      // Real axios shares one config object between err.config and err.response.config.
+      const config = {
+        headers: { Authorization: 'Bearer test-token', authorization: 'Bearer test-token' },
+      } as never;
+      err.config = config;
+      err.response = {
+        status: 500,
+        statusText: 'Server Error',
+        data: {},
+        headers: {},
+        config,
+      } as never;
+      return Promise.reject(err);
+    });
+    const { lexwareRequest } = await import('../services/lexware.js');
+    const caught = await lexwareRequest('GET', '/profile').then(
+      () => null,
+      (e: unknown) => e as Error & { cause?: unknown },
+    );
+    expect(caught).toBeInstanceOf(Error);
+    const causeHeaders = (caught?.cause as AxiosError | undefined)?.config?.headers as
+      | Record<string, unknown>
+      | undefined;
+    expect(causeHeaders?.Authorization).toBeUndefined();
+    expect(causeHeaders?.authorization).toBeUndefined();
+    // The real leak vector: a logger walking the whole error object (util.inspect /
+    // JSON.stringify / a structured logger) must not surface the bearer token.
+    const { inspect } = await import('node:util');
+    expect(inspect(caught, { depth: null })).not.toContain('test-token');
+  });
+
+  it('drops the Node ClientRequest so the token cannot leak via request._header when the error is logged', async () => {
+    // Node's ClientRequest keeps the raw header block verbatim, including the
+    // bearer token, on err.request._header and err.response.request._header.
+    // Scrubbing config.headers alone misses it; a structured logger walking the
+    // whole error (util.inspect/JSON) would otherwise surface the token.
+    const rawHeaderBlock =
+      'GET /profile HTTP/1.1\r\nAuthorization: Bearer test-token\r\nAccept: application/json\r\n\r\n';
+    mockRequest.mockImplementation(() => {
+      const err = new AxiosError('boom');
+      const config = {
+        headers: { Authorization: 'Bearer test-token', authorization: 'Bearer test-token' },
+      } as never;
+      const request = { _header: rawHeaderBlock } as never;
+      err.config = config;
+      err.request = request;
+      err.response = {
+        status: 500,
+        statusText: 'Server Error',
+        data: {},
+        headers: {},
+        config,
+        request,
+      } as never;
+      return Promise.reject(err);
+    });
+    const { lexwareRequest } = await import('../services/lexware.js');
+    const caught = await lexwareRequest('GET', '/profile').then(
+      () => null,
+      (e: unknown) => e as Error & { cause?: AxiosError },
+    );
+    expect(caught).toBeInstanceOf(Error);
+    const { inspect } = await import('node:util');
+    // No vector may surface the token: config.headers, err.request._header, or
+    // err.response.request._header.
+    expect(inspect(caught, { depth: null })).not.toContain('test-token');
+    // The ClientRequest references are gone entirely.
+    expect(caught?.cause?.request).toBeUndefined();
+    expect(caught?.cause?.response?.request).toBeUndefined();
+  });
+
+  it('sanitizes upload errors so the bearer token never leaks when logged', async () => {
+    const rawHeaderBlock =
+      'POST /files HTTP/1.1\r\nAuthorization: Bearer test-token\r\n\r\n';
+    mockRequest.mockImplementation(() => {
+      const err = new AxiosError('upload boom');
+      const config = { headers: { Authorization: 'Bearer test-token' } } as never;
+      const request = { _header: rawHeaderBlock } as never;
+      err.config = config;
+      err.request = request;
+      err.response = { status: 500, statusText: 'Server Error', data: {}, headers: {}, config, request } as never;
+      return Promise.reject(err);
+    });
+    const { lexwareUpload } = await import('../services/lexware.js');
+    const caught = await lexwareUpload('/files', Buffer.from('x'), 'x.pdf', 'application/pdf').then(
+      () => null,
+      (e: unknown) => e as Error,
+    );
+    expect(caught).toBeInstanceOf(Error);
+    const { inspect } = await import('node:util');
+    expect(inspect(caught, { depth: null })).not.toContain('test-token');
+  });
+
+  it('sanitizes download errors so the bearer token never leaks when logged', async () => {
+    const rawHeaderBlock =
+      'GET /files/abc HTTP/1.1\r\nAuthorization: Bearer test-token\r\n\r\n';
+    mockRequest.mockImplementation(() => {
+      const err = new AxiosError('download boom');
+      const config = { headers: { Authorization: 'Bearer test-token' } } as never;
+      const request = { _header: rawHeaderBlock } as never;
+      err.config = config;
+      err.request = request;
+      err.response = { status: 500, statusText: 'Server Error', data: {}, headers: {}, config, request } as never;
+      return Promise.reject(err);
+    });
+    const { lexwareDownload } = await import('../services/lexware.js');
+    const caught = await lexwareDownload('/files/abc').then(
+      () => null,
+      (e: unknown) => e as Error,
+    );
+    expect(caught).toBeInstanceOf(Error);
+    const { inspect } = await import('node:util');
+    expect(inspect(caught, { depth: null })).not.toContain('test-token');
   });
 
   it('creates client with correct base URL and auth header', async () => {
