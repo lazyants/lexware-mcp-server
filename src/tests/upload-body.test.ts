@@ -31,28 +31,34 @@ vi.mock('@napi-rs/keyring', () => ({
   AsyncEntry: vi.fn(function () { return { getPassword: mockGetPassword }; } as any),
 }));
 
+// Hermetic setup shared by BOTH describe blocks below. These hooks are at FILE
+// scope deliberately: hooks nested inside the first describe would not apply to
+// the D2 sibling block, which would then pass only as a side effect of the first
+// block having left services/lexware.ts's module-level token single-flight cache
+// warm — green as a whole file, red under `-t` filtering, a describe reorder, or
+// a split into two files.
+const originalEnv = process.env.LEXWARE_API_TOKEN;
+
+beforeEach(() => {
+  vi.resetModules();
+  process.env.LEXWARE_API_TOKEN = 'test-token';
+  mockRequest.mockReset();
+  mockCreate.mockClear();
+  mockGetPassword.mockResolvedValue(undefined);
+});
+
+afterEach(() => {
+  if (originalEnv !== undefined) {
+    process.env.LEXWARE_API_TOKEN = originalEnv;
+  } else {
+    delete process.env.LEXWARE_API_TOKEN;
+  }
+});
+
 // Focused on the #67 MIME guard and the #74.1 native-FormData body shape in
 // lexwareUpload — lexware-client.test.ts covers the rest of its request plumbing
 // (headers, the `type` part, error redaction).
 describe('lexwareUpload MIME guard and body shape', () => {
-  const originalEnv = process.env.LEXWARE_API_TOKEN;
-
-  beforeEach(() => {
-    vi.resetModules();
-    process.env.LEXWARE_API_TOKEN = 'test-token';
-    mockRequest.mockReset();
-    mockCreate.mockClear();
-    mockGetPassword.mockResolvedValue(undefined);
-  });
-
-  afterEach(() => {
-    if (originalEnv !== undefined) {
-      process.env.LEXWARE_API_TOKEN = originalEnv;
-    } else {
-      delete process.env.LEXWARE_API_TOKEN;
-    }
-  });
-
   // Regression test for #67: `form-data` escapes the field name and filename but
   // NOT contentType — it writes it into the multipart part header verbatim. Reject,
   // never silently strip, so the caller sees its own mistake instead of a mangled
@@ -159,18 +165,21 @@ describe('D2: cross-layer agreement — boundary MimeTypeSchema vs sink assertVa
   it.each(CROSS_LAYER_CORPUS)(
     '%s -> shouldPass=%s agrees at the boundary and the sink',
     async (value, shouldPass) => {
-      const boundaryResult = MimeTypeSchema.safeParse(value);
-      expect(boundaryResult.success).toBe(shouldPass);
+      expect(MimeTypeSchema.safeParse(value).success).toBe(shouldPass);
+
+      mockRequest.mockResolvedValue({ data: { id: 'ok' } });
+      const { lexwareUpload } = await import('../services/lexware.js');
+      const sink = lexwareUpload('/files', Buffer.from('x'), 'a.pdf', value);
 
       if (shouldPass) {
-        mockRequest.mockResolvedValue({ data: { id: 'ok' } });
+        await expect(sink).resolves.toEqual({ id: 'ok' });
+      } else {
+        // Assert the MIME guard rejected it, not merely that SOMETHING threw.
+        // A bare `.then(() => true, () => false)` would also swallow a missing
+        // API token or a downstream TypeError and report them as a correct
+        // rejection — which is exactly what once masked a hermeticity defect here.
+        await expect(sink).rejects.toThrow(`Invalid contentType for upload: ${JSON.stringify(value)}`);
       }
-      const { lexwareUpload } = await import('../services/lexware.js');
-      const sinkAccepted = await lexwareUpload('/files', Buffer.from('x'), 'a.pdf', value).then(
-        () => true,
-        () => false,
-      );
-      expect(sinkAccepted).toBe(shouldPass);
     },
   );
 

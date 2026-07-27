@@ -113,33 +113,23 @@ describe('tools/list round-trip: required[] and describe() propagation', () => {
   // produced — same description, same pattern (sourced from the shared
   // MIME_TYPE_RE, not a hardcoded copy), and contentType still correctly absent
   // from required[] (the zod-4 `optin` trap this file exists to catch).
-  it('lexware_upload_file: contentType carries the shared MIME pattern/description and stays out of required[]', async () => {
-    const client = await connectClient(registerFileTools);
-    try {
-      const tool = await findTool(client, 'lexware_upload_file');
-      expect(tool.inputSchema.properties?.contentType).toBeDefined();
-      expect(tool.inputSchema.properties?.contentType?.description).toBe(
-        'MIME type, defaults to application/pdf'
-      );
-      expect(tool.inputSchema.properties?.contentType?.pattern).toBe(MIME_TYPE_RE.source);
-      expect(tool.inputSchema.required).toEqual(['fileName', 'contentBase64']);
-    } finally {
-      await client.close();
+  it.each([
+    ['lexware_upload_file', registerFileTools, ['fileName', 'contentBase64']],
+    ['lexware_upload_voucher_file', registerVoucherTools, ['id', 'fileName', 'contentBase64']],
+  ] as const)(
+    '%s: contentType carries the shared MIME pattern/description and stays out of required[]',
+    async (name, register, required) => {
+      const client = await connectClient(register);
+      try {
+        const tool = await findTool(client, name);
+        expect(tool.inputSchema.properties?.contentType?.description).toBe(
+          'MIME type, defaults to application/pdf'
+        );
+        expect(tool.inputSchema.properties?.contentType?.pattern).toBe(MIME_TYPE_RE.source);
+        expect(tool.inputSchema.required).toEqual(required);
+      } finally {
+        await client.close();
+      }
     }
-  });
-
-  it('lexware_upload_voucher_file: contentType carries the shared MIME pattern/description and stays out of required[]', async () => {
-    const client = await connectClient(registerVoucherTools);
-    try {
-      const tool = await findTool(client, 'lexware_upload_voucher_file');
-      expect(tool.inputSchema.properties?.contentType).toBeDefined();
-      expect(tool.inputSchema.properties?.contentType?.description).toBe(
-        'MIME type, defaults to application/pdf'
-      );
-      expect(tool.inputSchema.properties?.contentType?.pattern).toBe(MIME_TYPE_RE.source);
-      expect(tool.inputSchema.required).toEqual(['id', 'fileName', 'contentBase64']);
-    } finally {
-      await client.close();
-    }
-  });
+  );
 });
