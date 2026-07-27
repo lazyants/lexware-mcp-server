@@ -4,6 +4,7 @@ import { lexwareRequest, lexwareUpload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
 import { UuidSchema, PaginationParams, MimeTypeSchema } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
+import { VOUCHER_STATUSES, normalizeVoucherResponse } from './_vouchers.js';
 
 export function registerVoucherTools(server: McpServer): void {
   server.registerTool('lexware_create_voucher', {
@@ -26,7 +27,10 @@ export function registerVoucherTools(server: McpServer): void {
 
   server.registerTool('lexware_get_voucher', {
     title: 'Get Voucher',
-    description: 'Retrieve a bookkeeping voucher by ID from Lexware.',
+    description:
+      'Retrieve a bookkeeping voucher by ID from Lexware. The voucherStatus field in the ' +
+      'response is normalized to its canonical lowercase form. Known values: ' +
+      `${VOUCHER_STATUSES.join(', ')}.`,
     inputSchema: z.object({
       id: UuidSchema.describe('Voucher UUID'),
     }),
@@ -37,7 +41,8 @@ export function registerVoucherTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    return lexwareRequest('GET', `/vouchers/${params.id}`);
+    const voucher = await lexwareRequest<Record<string, unknown>>('GET', `/vouchers/${params.id}`);
+    return normalizeVoucherResponse(voucher);
   }));
 
   server.registerTool('lexware_update_voucher', {
