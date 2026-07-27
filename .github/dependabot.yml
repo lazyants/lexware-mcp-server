@@ -19,7 +19,16 @@ updates:
       # No published typescript-eslint accepts TypeScript 7 — its peer range is
       # still `>=4.8.4 <6.1.0` as of 8.65.0, so a major bump fails `npm ci` with
       # ERESOLVE before lint/build/test run. Remove this rule as the first step
-      # of lazyants/lexware-mcp-server#95.
+      # of issue #95.
+      #
+      # ACCEPTED RESIDUAL RISK: `ignore` has no `applies-to` key (that parameter
+      # exists only on `groups`), so this cannot be scoped to version updates.
+      # Per GitHub's Dependabot options reference, `ignore` also changes how
+      # security-update PRs are created — meaning a CVE needing a TypeScript
+      # MAJOR bump would be suppressed here too. Accepted because `typescript`
+      # is a devDependency: it is the compiler, never shipped to consumers
+      # (runtime deps are @modelcontextprotocol/sdk, axios, zod). Minor and
+      # patch security updates are unaffected. Revisit via #95.
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
 
