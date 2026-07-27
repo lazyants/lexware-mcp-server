@@ -315,6 +315,13 @@ With an environment variable instead:
 
 `lexware_upload_file`, `lexware_download_file`, `lexware_get_file_status`, `lexware_deeplink_file`
 
+Both upload tools (`lexware_upload_file` and `lexware_upload_voucher_file`) take the file either as
+`contentBase64` or as `filePath` — an absolute path readable by the MCP server process. Prefer
+`filePath` for anything sizeable: base64 inflates the payload by about a third and has to travel
+through the model's context window. With `filePath`, `fileName` defaults to the file's base name and
+`contentType` is auto-detected for `.png`, `.jpg`/`.jpeg` and `.tiff`/`.tif`, falling back to
+`application/pdf`. Provide exactly one of the two — supplying both, or neither, is a validation error.
+
 ### Recurring Templates (3 tools) — system
 
 `lexware_list_recurring_templates`, `lexware_get_recurring_template`, `lexware_deeplink_recurring_template`
