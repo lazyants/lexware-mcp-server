@@ -98,9 +98,11 @@ function parseMultipart(body: Buffer, boundary: string): ParsedPart[] {
     // CRLF_BYTES), immediately followed by the next marker (or the footer).
     const chunk = body.subarray(positions[i] + marker.length + 2, positions[i + 1] - 2);
     const headerEnd = chunk.indexOf('\r\n\r\n');
-    // Not a vacuous-pass guard — a missing terminator yields one garbage part and
-    // the toHaveLength(2) assertion still fails. This only makes that failure
-    // legible instead of baffling.
+    // Part count follows the boundary-marker count, so a missing terminator does
+    // NOT change it — measured: toHaveLength(2) still passes, and both framing
+    // assertions still pass too. Unguarded, the defect surfaces further down as
+    // the file part's body carrying its own leaked header block. Throwing here
+    // names the actual defect at the point it first becomes detectable.
     if (headerEnd === -1) throw new Error(`multipart part ${i} has no header terminator`);
     const headerBlock = chunk.subarray(0, headerEnd).toString('latin1');
     const content = chunk.subarray(headerEnd + 4);
