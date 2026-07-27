@@ -16,6 +16,12 @@ updates:
     ignore:
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # No published typescript-eslint accepts TypeScript 7 — its peer range is
+      # still `>=4.8.4 <6.1.0` as of 8.65.0, so a major bump fails `npm ci` with
+      # ERESOLVE before lint/build/test run. Remove this rule as the first step
+      # of lazyants/lexware-mcp-server#95.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
