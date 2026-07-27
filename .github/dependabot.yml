@@ -24,11 +24,20 @@ updates:
       # ACCEPTED RESIDUAL RISK: `ignore` has no `applies-to` key (that parameter
       # exists only on `groups`), so this cannot be scoped to version updates.
       # Per GitHub's Dependabot options reference, `ignore` also changes how
-      # security-update PRs are created — meaning a CVE needing a TypeScript
-      # MAJOR bump would be suppressed here too. Accepted because `typescript`
-      # is a devDependency: it is the compiler, never shipped to consumers
-      # (runtime deps are @modelcontextprotocol/sdk, axios, zod). Minor and
-      # patch security updates are unaffected. Revisit via #95.
+      # SECURITY-update PRs are created, so were a CVE to need a TypeScript major
+      # bump, this rule would suppress that PR too.
+      #
+      # Two reasons that is acceptable here, in order of weight:
+      #   1. Dependabot security updates are currently DISABLED repo-wide
+      #      (`GET /repos/.../automated-security-fixes` -> {"enabled": false}),
+      #      so no security-update PR is opened for ANY dependency regardless of
+      #      this rule. Tracked separately in #99 — if that is turned on, re-read
+      #      this rule, because point 2 becomes the only thing carrying it.
+      #   2. `typescript` is a devDependency — the compiler, never shipped to
+      #      consumers (runtime deps are @modelcontextprotocol/sdk, axios, zod).
+      #      Note this bounds CONSUMER exposure, not build-time exposure: a
+      #      compromised compiler still runs over our source at release time.
+      # Minor and patch updates are unaffected either way. Revisit via #95.
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
 
