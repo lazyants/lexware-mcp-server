@@ -325,7 +325,7 @@ With an environment variable instead:
 - **Never commit your API token** to version control
 - Use **read-only** access when you only need to list/get resources
 - **Create, update, and delete tools modify real business data** — invoices, contacts, and accounting records in your Lexware account
-- Rate limiting is handled automatically: non-upload requests retry with exponential backoff on 429; file uploads (which use one-shot streams that cannot be safely replayed) surface the original 429 immediately instead of retrying
+- Rate limiting is handled automatically: requests retry with exponential backoff on 429, including file uploads — the multipart body is rebuilt fresh on every retry attempt, so it can be replayed safely
 
 ## Releasing
 
