@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
-import { UuidSchema, PaginationParams, VersionParam } from '../schemas/common.js';
+import { UuidSchema, PaginationParams, VersionParam, MimeTypeSchema } from '../schemas/common.js';
 
 describe('UuidSchema', () => {
   it('accepts valid UUIDs', () => {
@@ -54,5 +54,30 @@ describe('VersionParam', () => {
 
   it('rejects negative version', () => {
     expect(() => schema.parse({ version: -1 })).toThrow();
+  });
+});
+
+// Boundary schema for the two upload tools' contentType param (#88). The full
+// cross-layer agreement corpus against the sink guard lives in
+// upload-body.test.ts (D2); this file only pins the schema's own shape.
+describe('MimeTypeSchema', () => {
+  it('accepts a plain type/subtype', () => {
+    expect(MimeTypeSchema.parse('application/pdf')).toBe('application/pdf');
+  });
+
+  it('accepts a type/subtype with a parameter tail', () => {
+    expect(MimeTypeSchema.parse('application/pdf; charset=utf-8')).toBe(
+      'application/pdf; charset=utf-8'
+    );
+  });
+
+  it('rejects a value with no slash', () => {
+    expect(() => MimeTypeSchema.parse('not-a-mime-type')).toThrow();
+  });
+
+  // D3: '' is rejected at the boundary, not silently defaulted — see D2's shared
+  // corpus for the full rationale.
+  it('rejects an empty string', () => {
+    expect(() => MimeTypeSchema.parse('')).toThrow();
   });
 });
