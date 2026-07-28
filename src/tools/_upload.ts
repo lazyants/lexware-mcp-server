@@ -25,6 +25,9 @@ const EXT_CONTENT_TYPES: Record<string, string> = {
   '.jpeg': 'image/jpeg',
   '.tiff': 'image/tiff',
   '.tif': 'image/tiff',
+  // Lexware lists XML alongside PDF/JPG/PNG, and the voucher upload endpoint accepts
+  // it explicitly — without this an invoice.xml would go up as application/pdf.
+  '.xml': 'application/xml',
 };
 
 export interface UploadSource {
@@ -98,27 +101,30 @@ export function uploadInputSchema<Shape extends z.ZodRawShape>(extra: Shape) {
  * `cause` — the errno, syscall and path stay recoverable for a caller that inspects
  * it, while the message stays readable.
  *
- * Oversized payloads are rejected here, before any bytes reach the wire.
+ * Oversized payloads are rejected before their bytes are ever loaded.
  */
 export function resolveUpload(params: UploadSource): ResolvedUpload {
-  return assertWithinSizeLimit(readSource(params));
+  const upload = readSource(params);
+  // The filePath branch has already checked twice (fstat, then the buffer). This
+  // covers the contentBase64 branch, where the bytes are unavoidably in memory
+  // already — the string arrived over the wire.
+  assertWithinSizeLimit(upload.buffer.byteLength);
+  return upload;
 }
 
-// The limit is checked on the RESOLVED buffer, so it governs decoded bytes on both
-// branches — a base64 string is ~33% larger than what it decodes to, and capping the
-// encoded form would reject files that are actually within the limit.
-function assertWithinSizeLimit(upload: ResolvedUpload): ResolvedUpload {
-  if (upload.buffer.byteLength > MAX_UPLOAD_BYTES) {
+// Always applied to DECODED byte counts: base64 is ~33% larger than what it decodes
+// to, so capping the encoded form would reject files that are within the limit.
+function assertWithinSizeLimit(byteLength: number): void {
+  if (byteLength > MAX_UPLOAD_BYTES) {
     // Serialized payload rather than prose: the caller here is a model deciding what
     // to do next, and it needs the two numbers and the remedy, not a sentence.
     throw new Error(JSON.stringify({
       error: 'file_too_large',
-      actualSize: upload.buffer.byteLength,
+      actualSize: byteLength,
       maxSize: MAX_UPLOAD_BYTES,
       suggestion: 'Compress the PDF or re-scan at lower DPI to reduce file size below 5 MB',
     }));
   }
-  return upload;
 }
 
 function readSource(params: UploadSource): ResolvedUpload {
@@ -151,8 +157,13 @@ function readSource(params: UploadSource): ResolvedUpload {
     );
   }
 
+  // Open ONCE and do every subsequent check against that descriptor. Checking the
+  // path and then reading it again is a TOCTOU window: the file can be swapped for a
+  // larger one between the two, bypassing the cap. fstat + read on one fd cannot be
+  // raced that way.
+  let fd: number;
   try {
-    fs.accessSync(resolved, fs.constants.R_OK);
+    fd = fs.openSync(resolved, 'r');
   } catch (err) {
     throw new Error(
       `File not readable at "${resolved}": ${(err as NodeJS.ErrnoException).message}`,
@@ -160,10 +171,32 @@ function readSource(params: UploadSource): ResolvedUpload {
     );
   }
 
-  const ext = path.extname(resolved).toLowerCase();
-  return {
-    buffer: fs.readFileSync(resolved),
-    fileName: params.fileName ?? path.basename(resolved),
-    contentType: params.contentType ?? EXT_CONTENT_TYPES[ext] ?? 'application/pdf',
-  };
+  try {
+    const stats = fs.fstatSync(fd);
+
+    // Rejecting non-regular files is not pedantry: a character device such as
+    // /dev/zero is infinite, and readFileSync on it never returns — the server would
+    // hang until the request timed out, with memory climbing the whole time.
+    if (!stats.isFile()) {
+      throw new Error(`filePath must point to a regular file, got: ${resolved}`);
+    }
+
+    // Size is checked from the descriptor BEFORE reading, so an oversized file costs
+    // one stat rather than a full read into memory.
+    assertWithinSizeLimit(stats.size);
+
+    const ext = path.extname(resolved).toLowerCase();
+    const buffer = fs.readFileSync(fd);
+    // The file can still grow between fstat and read; the buffer is what actually
+    // gets uploaded, so it is what the cap must ultimately hold for.
+    assertWithinSizeLimit(buffer.byteLength);
+
+    return {
+      buffer,
+      fileName: params.fileName ?? path.basename(resolved),
+      contentType: params.contentType ?? EXT_CONTENT_TYPES[ext] ?? 'application/pdf',
+    };
+  } finally {
+    fs.closeSync(fd);
+  }
 }

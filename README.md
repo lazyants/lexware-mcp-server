@@ -319,12 +319,15 @@ Both upload tools (`lexware_upload_file` and `lexware_upload_voucher_file`) take
 `contentBase64` or as `filePath` — an absolute path readable by the MCP server process. Prefer
 `filePath` for anything sizeable: base64 inflates the payload by about a third and has to travel
 through the model's context window. With `filePath`, `fileName` defaults to the file's base name and
-`contentType` is auto-detected for `.png`, `.jpg`/`.jpeg` and `.tiff`/`.tif`, falling back to
-`application/pdf`. Provide exactly one of the two — supplying both, or neither, is a validation error.
+`contentType` is auto-detected for `.png`, `.jpg`/`.jpeg`, `.tiff`/`.tif` and `.xml`, falling back
+to `application/pdf`. Provide exactly one of the two — supplying both, or neither, is a validation
+error.
 
-Uploads are capped at 5 MB. The limit is checked against the decoded bytes before anything is sent,
-so an oversized file fails immediately with a `file_too_large` error carrying the actual and maximum
-sizes rather than after streaming the whole body to Lexware.
+Uploads are capped at 5 MB. For `filePath` the size is taken from the opened descriptor *before* the
+file is read, so an oversized file costs a stat rather than a full load into memory, and anything
+that is not a regular file is refused outright (reading `/dev/zero` would otherwise never return).
+The decoded byte count is checked again afterwards, which also covers `contentBase64`. Failures
+carry a `file_too_large` error with the actual and maximum sizes.
 
 ### Recurring Templates (3 tools) — system
 

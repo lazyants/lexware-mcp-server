@@ -12,7 +12,9 @@ import { registerVoucherTools } from '../tools/vouchers.js';
 // because vi.mock is hoisted above top-level imports.
 const mocks = vi.hoisted(() => ({
   realpathSync: vi.fn(),
-  accessSync: vi.fn(),
+  openSync: vi.fn(),
+  fstatSync: vi.fn(),
+  closeSync: vi.fn(),
   readFileSync: vi.fn(),
   lexwareUpload: vi.fn(),
   lexwareRequest: vi.fn(),
@@ -20,10 +22,24 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('node:fs', () => ({
   realpathSync: mocks.realpathSync,
-  accessSync: mocks.accessSync,
+  openSync: mocks.openSync,
+  fstatSync: mocks.fstatSync,
+  closeSync: mocks.closeSync,
   readFileSync: mocks.readFileSync,
   constants: { R_OK: 4 },
 }));
+
+// Baseline fs stubs: a readable regular file of unremarkable size. Tests override
+// only the axis they exercise (stat size, file type, open failure).
+function resetFsMocks(): void {
+  mocks.realpathSync.mockReset();
+  mocks.openSync.mockReset();
+  mocks.fstatSync.mockReset();
+  mocks.closeSync.mockReset();
+  mocks.readFileSync.mockReset();
+  mocks.openSync.mockReturnValue(7);
+  mocks.fstatSync.mockReturnValue({ isFile: () => true, size: 1024 });
+}
 
 vi.mock('../services/lexware.js', () => ({
   lexwareRequest: mocks.lexwareRequest,
@@ -58,9 +74,7 @@ describe('lexware_upload_file', () => {
   let handler: (params: unknown) => Promise<any>;
 
   beforeEach(() => {
-    mocks.realpathSync.mockReset();
-    mocks.accessSync.mockReset();
-    mocks.readFileSync.mockReset();
+    resetFsMocks();
     mocks.lexwareUpload.mockReset();
     mocks.lexwareRequest.mockReset();
     mocks.lexwareUpload.mockResolvedValue({ id: 'file-123' });
@@ -126,9 +140,9 @@ describe('lexware_upload_file', () => {
       expect(result.content[0].text).toContain('/nonexistent.pdf');
     });
 
-    it('returns error with resolved path when accessSync fails', async () => {
+    it('returns error with resolved path when the file cannot be opened', async () => {
       mocks.realpathSync.mockReturnValue('/real/path.pdf');
-      mocks.accessSync.mockImplementation(() => { throw Object.assign(new Error('permission denied'), { code: 'EACCES' }); });
+      mocks.openSync.mockImplementation(() => { throw Object.assign(new Error('permission denied'), { code: 'EACCES' }); });
       const result = await handler({ filePath: '/symlink/path.pdf' }) as any;
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('File not readable');
@@ -139,7 +153,10 @@ describe('lexware_upload_file', () => {
       mocks.realpathSync.mockReturnValue('/real/invoice.pdf');
       mocks.readFileSync.mockReturnValue(Buffer.from('content'));
       await handler({ filePath: '/symlink/invoice.pdf' });
-      expect(mocks.readFileSync).toHaveBeenCalledWith('/real/invoice.pdf');
+      // Reads go through the descriptor opened from the resolved path, never the
+      // path a second time — that re-open is the TOCTOU window fd use removes.
+      expect(mocks.openSync).toHaveBeenCalledWith('/real/invoice.pdf', 'r');
+      expect(mocks.readFileSync).toHaveBeenCalledWith(7);
     });
 
     it('derives fileName from basename when not provided', async () => {
@@ -164,6 +181,9 @@ describe('lexware_upload_file', () => {
       ['/img.JPEG',  'image/jpeg'],
       ['/img.tiff',  'image/tiff'],
       ['/img.tif',   'image/tiff'],
+      // Lexware accepts XML uploads; without this an e-invoice went up as PDF.
+      ['/invoice.xml', 'application/xml'],
+      ['/INVOICE.XML', 'application/xml'],
       ['/doc.pdf',   'application/pdf'],
       ['/doc.xyz',   'application/pdf'],
     ])('auto-detects contentType for %s → %s', async (filePath, expectedType) => {
@@ -227,7 +247,7 @@ describe('lexware_upload_file', () => {
     it('does not call any fs methods', async () => {
       await handler({ contentBase64: 'abc', fileName: 'test.pdf' });
       expect(mocks.realpathSync).not.toHaveBeenCalled();
-      expect(mocks.accessSync).not.toHaveBeenCalled();
+      expect(mocks.openSync).not.toHaveBeenCalled();
       expect(mocks.readFileSync).not.toHaveBeenCalled();
     });
   });
@@ -235,16 +255,53 @@ describe('lexware_upload_file', () => {
   describe('handler — 5 MB size limit', () => {
     const MAX = 5 * 1024 * 1024;
 
-    it('rejects filePath file exceeding 5 MB before calling lexwareUpload', async () => {
+    // The cap must bound the READ, not just the upload: rejecting only after
+    // readFileSync would still allocate the whole file first.
+    it('rejects an oversized filePath from fstat, without ever reading it', async () => {
       mocks.realpathSync.mockReturnValue('/docs/large.pdf');
-      mocks.readFileSync.mockReturnValue(Buffer.alloc(MAX + 1));
+      mocks.fstatSync.mockReturnValue({ isFile: () => true, size: MAX + 1 });
       const result = await handler({ filePath: '/docs/large.pdf' }) as any;
       expect(result.isError).toBe(true);
       const payload = JSON.parse(result.content[0].text.replace(/^Error: /, ''));
       expect(payload.error).toBe('file_too_large');
       expect(payload.actualSize).toBe(MAX + 1);
       expect(payload.maxSize).toBe(MAX);
+      expect(mocks.readFileSync).not.toHaveBeenCalled();
       expect(mocks.lexwareUpload).not.toHaveBeenCalled();
+      expect(mocks.closeSync).toHaveBeenCalledWith(7);
+    });
+
+    // /dev/zero is infinite: readFileSync on it never returns, so the server would
+    // hang until timeout with memory climbing the whole way.
+    it('refuses a non-regular file such as a character device', async () => {
+      mocks.realpathSync.mockReturnValue('/dev/zero');
+      mocks.fstatSync.mockReturnValue({ isFile: () => false, size: 0 });
+      const result = await handler({ filePath: '/dev/zero' }) as any;
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('must point to a regular file');
+      expect(mocks.readFileSync).not.toHaveBeenCalled();
+      expect(mocks.closeSync).toHaveBeenCalledWith(7);
+    });
+
+    // Stat says small, the bytes say otherwise — a file swapped between the two.
+    // The buffer is what would be uploaded, so it is what the cap must hold for.
+    it('still rejects when the file grows between fstat and read', async () => {
+      mocks.realpathSync.mockReturnValue('/docs/racy.pdf');
+      mocks.fstatSync.mockReturnValue({ isFile: () => true, size: 10 });
+      mocks.readFileSync.mockReturnValue(Buffer.alloc(MAX + 1));
+      const result = await handler({ filePath: '/docs/racy.pdf' }) as any;
+      expect(result.isError).toBe(true);
+      const payload = JSON.parse(result.content[0].text.replace(/^Error: /, ''));
+      expect(payload.error).toBe('file_too_large');
+      expect(payload.actualSize).toBe(MAX + 1);
+      expect(mocks.lexwareUpload).not.toHaveBeenCalled();
+    });
+
+    it('closes the descriptor even when the read throws', async () => {
+      mocks.realpathSync.mockReturnValue('/docs/boom.pdf');
+      mocks.readFileSync.mockImplementation(() => { throw new Error('EIO'); });
+      await handler({ filePath: '/docs/boom.pdf' });
+      expect(mocks.closeSync).toHaveBeenCalledWith(7);
     });
 
     // The cap governs DECODED bytes: this base64 string is ~33% longer than MAX+1,
@@ -261,6 +318,7 @@ describe('lexware_upload_file', () => {
 
     it('accepts a file exactly at the 5 MB limit', async () => {
       mocks.realpathSync.mockReturnValue('/docs/exact.pdf');
+      mocks.fstatSync.mockReturnValue({ isFile: () => true, size: MAX });
       mocks.readFileSync.mockReturnValue(Buffer.alloc(MAX));
       const result = await handler({ filePath: '/docs/exact.pdf' }) as any;
       expect(result.isError).toBeUndefined();
@@ -276,9 +334,7 @@ describe('lexware_upload_voucher_file', () => {
   let handler: (params: unknown) => Promise<any>;
 
   beforeEach(() => {
-    mocks.realpathSync.mockReset();
-    mocks.accessSync.mockReset();
-    mocks.readFileSync.mockReset();
+    resetFsMocks();
     mocks.lexwareUpload.mockReset();
     mocks.lexwareRequest.mockReset();
     mocks.lexwareUpload.mockResolvedValue({ id: 'vf-456' });
@@ -349,9 +405,9 @@ describe('lexware_upload_voucher_file', () => {
       expect(result.content[0].text).toContain('must be absolute');
     });
 
-    it('returns error with resolved path when accessSync fails', async () => {
+    it('returns error with resolved path when the file cannot be opened', async () => {
       mocks.realpathSync.mockReturnValue('/real/voucher-doc.pdf');
-      mocks.accessSync.mockImplementation(() => { throw Object.assign(new Error('permission denied'), { code: 'EACCES' }); });
+      mocks.openSync.mockImplementation(() => { throw Object.assign(new Error('permission denied'), { code: 'EACCES' }); });
       const result = await handler({ id: VALID_UUID, filePath: '/link/voucher-doc.pdf' }) as any;
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('/real/voucher-doc.pdf');
@@ -383,7 +439,8 @@ describe('lexware_upload_voucher_file', () => {
 
       it('accepts a file exactly at the 5 MB limit', async () => {
         mocks.realpathSync.mockReturnValue('/docs/exact.pdf');
-        mocks.readFileSync.mockReturnValue(Buffer.alloc(MAX));
+        mocks.fstatSync.mockReturnValue({ isFile: () => true, size: MAX });
+      mocks.readFileSync.mockReturnValue(Buffer.alloc(MAX));
         const result = await handler({ id: VALID_UUID, filePath: '/docs/exact.pdf' }) as any;
         expect(result.isError).toBeUndefined();
         expect(mocks.lexwareUpload).toHaveBeenCalled();
