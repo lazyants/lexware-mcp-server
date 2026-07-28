@@ -2,19 +2,20 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { lexwareRequest, lexwareUpload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
-import { UuidSchema, MimeTypeSchema } from '../schemas/common.js';
+import { UuidSchema } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
 import { downloadFileResult } from './_download.js';
+import { uploadInputSchema, resolveUpload } from './_upload.js';
 
 export function registerFileTools(server: McpServer): void {
   server.registerTool('lexware_upload_file', {
     title: 'Upload File',
-    description: 'Upload a file to Lexware.',
-    inputSchema: z.object({
-      fileName: z.string().describe('Name of the file to upload'),
-      contentBase64: z.string().describe('Base64-encoded file content'),
-      contentType: MimeTypeSchema.optional(),
-    }),
+    description:
+      'Upload a file to Lexware. Provide either filePath (absolute path on the MCP server host) ' +
+      'or contentBase64 (base64-encoded content) — not both. When using filePath, fileName is ' +
+      'optional (derived from the file name) and contentType is auto-detected for common image ' +
+      'extensions. When using contentBase64, fileName is required.',
+    inputSchema: uploadInputSchema({}),
     annotations: {
       readOnlyHint: false,
       destructiveHint: false,
@@ -22,10 +23,10 @@ export function registerFileTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    const buffer = Buffer.from(params.contentBase64, 'base64');
+    const { buffer, fileName, contentType } = resolveUpload(params);
     // POST /v1/files requires a type form part; 'voucher' is the only documented
     // upload type; omitting it → HTTP 400. Not needed on /vouchers/{id}/files.
-    return lexwareUpload('/files', buffer, params.fileName, params.contentType || 'application/pdf', 'voucher');
+    return lexwareUpload('/files', buffer, fileName, contentType, 'voucher');
   }));
 
   server.registerTool('lexware_download_file', {
@@ -46,7 +47,9 @@ export function registerFileTools(server: McpServer): void {
 
   server.registerTool('lexware_get_file_status', {
     title: 'Get File Status',
-    description: 'Get file metadata and processing status from Lexware.',
+    description:
+      'Get the processing status of an uploaded file from Lexware. Requires an API key with ' +
+      'the file-status scope; keys without it get an access_denied error from Lexware.',
     inputSchema: z.object({
       id: UuidSchema.describe('File UUID'),
     }),
@@ -57,7 +60,11 @@ export function registerFileTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    return lexwareRequest('GET', `/files/${params.id}`);
+    // MUST be `/status`, not `/files/{id}` — the latter is the binary DOWNLOAD route.
+    // Verified against the live API: with `Accept: application/json` it answers 200
+    // with Content-Type application/pdf and the file body base64-encoded, so reading
+    // it as metadata returned the file, never a status.
+    return lexwareRequest('GET', `/files/${params.id}/status`);
   }));
 
   server.registerTool('lexware_deeplink_file', {
