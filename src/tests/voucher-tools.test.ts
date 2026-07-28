@@ -289,7 +289,11 @@ describe('lexware_list_vouchers — client-side filters', () => {
   it.each([
     ['voucherDateFrom', 'January 2024'],
     ['voucherDateTo', '15.01.2024'],
-  ])('rejects %s that is not YYYY-MM-DD', (field, value) => {
+    // End-anchored: a start-anchored pattern accepted these, and the trailing junk
+    // then took part in the lexicographic date comparisons below.
+    ['voucherDateFrom', '2024-01-15junk'],
+    ['voucherDateTo', '2024-01-15T00:00:00'],
+  ])('rejects %s = %p (contract promises an exact date)', (field, value) => {
     expect(schema.safeParse({ [field]: value }).success).toBe(false);
   });
 
@@ -341,6 +345,36 @@ describe('lexware_get_voucher — retry behaviour', () => {
     expect(result.isError).toBeUndefined();
     expect(result.structuredContent.voucherStatus).toBe('open');
     expect(mocks.lexwareRequest).toHaveBeenCalledTimes(2);
+  });
+
+  // Regression for the seam the earlier tests missed: withProcessingRetry was tested
+  // with an empty response directly, and get_voucher was tested only with 404s, so
+  // nothing exercised an empty response THROUGH this handler — where normalizing
+  // inside the retry callback dereferenced the null and threw a TypeError.
+  it('retries a null response instead of throwing, and returns the voucher once it lands', async () => {
+    mocks.lexwareRequest
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({ id: VALID_UUID, voucherStatus: 'OPEN', version: 1 });
+
+    const promise = handler({ id: VALID_UUID });
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent.voucherStatus).toBe('open');
+    expect(mocks.lexwareRequest).toHaveBeenCalledTimes(2);
+  });
+
+  it('passes an empty body through rather than inventing a shape, once retries are spent', async () => {
+    mocks.lexwareRequest.mockResolvedValue(null);
+
+    const promise = handler({ id: VALID_UUID });
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toBeUndefined(); // null carries no structuredContent
+    expect(mocks.lexwareRequest).toHaveBeenCalledTimes(3);
   });
 
   // A 500/401 reported as "still processing" would send the caller into a wait for

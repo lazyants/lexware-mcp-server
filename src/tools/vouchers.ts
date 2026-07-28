@@ -55,10 +55,17 @@ export function registerVoucherTools(server: McpServer): void {
     },
   }, handleToolRequest(async (params) => {
     try {
-      return await withProcessingRetry(async () => {
-        const voucher = await lexwareRequest<Record<string, unknown>>('GET', `/vouchers/${params.id}`);
-        return normalizeVoucherResponse(voucher);
-      });
+      // Normalize AFTER the retry, never inside it. Lexware answers `null` during the
+      // indexing window, and normalizing in the retried callback dereferenced that
+      // null — throwing a TypeError that isNotFound() rightly rejects, so the empty-
+      // response branch of withProcessingRetry could never fire and the caller got a
+      // crash instead of a retry.
+      const voucher = await withProcessingRetry(
+        () => lexwareRequest<Record<string, unknown> | null>('GET', `/vouchers/${params.id}`),
+      );
+      // Retries can still legitimately end on an empty body; pass it through rather
+      // than inventing a shape for it.
+      return voucher && typeof voucher === 'object' ? normalizeVoucherResponse(voucher) : voucher;
     } catch (err) {
       // ONLY an exhausted 404 becomes the soft "processing" answer. Reporting a 401
       // or a 500 as "still processing" would tell the caller to wait for something
@@ -112,10 +119,10 @@ export function registerVoucherTools(server: McpServer): void {
       contactName: z.string().optional().describe(
         'Wildcard filter on contactName (client-side). % = any chars, _ = any single char. Case-insensitive. Example: "Müller%".'
       ),
-      voucherDateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}/, 'Must be YYYY-MM-DD').optional().describe(
+      voucherDateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be exactly YYYY-MM-DD').optional().describe(
         'Include only vouchers with voucherDate >= this date (inclusive). Format: YYYY-MM-DD.'
       ),
-      voucherDateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}/, 'Must be YYYY-MM-DD').optional().describe(
+      voucherDateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be exactly YYYY-MM-DD').optional().describe(
         'Include only vouchers with voucherDate <= this date (inclusive). Format: YYYY-MM-DD.'
       ),
       hasOpenAmount: z.boolean().optional().describe(
