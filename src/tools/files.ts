@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { lexwareUpload } from '../services/lexware.js';
+import { lexwareRequest, lexwareUpload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
 import { UuidSchema } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
@@ -43,6 +43,28 @@ export function registerFileTools(server: McpServer): void {
     },
   }, handleToolRequest(async (params) => {
     return downloadFileResult(`/files/${params.id}`, 'file');
+  }));
+
+  server.registerTool('lexware_get_file_status', {
+    title: 'Get File Status',
+    description:
+      'Get the processing status of an uploaded file from Lexware. Requires an API key with ' +
+      'the file-status scope; keys without it get an access_denied error from Lexware.',
+    inputSchema: z.object({
+      id: UuidSchema.describe('File UUID'),
+    }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+  }, handleToolRequest(async (params) => {
+    // MUST be `/status`, not `/files/{id}` — the latter is the binary DOWNLOAD route.
+    // Verified against the live API: with `Accept: application/json` it answers 200
+    // with Content-Type application/pdf and the file body base64-encoded, so reading
+    // it as metadata returned the file, never a status.
+    return lexwareRequest('GET', `/files/${params.id}/status`);
   }));
 
   server.registerTool('lexware_deeplink_file', {

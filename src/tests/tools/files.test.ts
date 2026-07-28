@@ -25,11 +25,12 @@ describe('files tool registry', () => {
     mockLexwareUpload.mockReset();
   });
 
-  it('registers exactly the expected 3 file tools', async () => {
+  it('registers exactly the expected 4 file tools', async () => {
     const tools = await loadAndRegister();
     expect([...tools.keys()].sort()).toEqual([
       'lexware_deeplink_file',
       'lexware_download_file',
+      'lexware_get_file_status',
       'lexware_upload_file',
     ]);
   });
@@ -115,16 +116,22 @@ describe('files tool registry', () => {
     });
   });
 
-  // GET /files/{id} is the binary DOWNLOAD endpoint, so no file tool may treat it as
-  // a JSON metadata read — that was `lexware_get_file_status`, now removed. Asserting
-  // the whole registry never touches lexwareRequest keeps the mistake from returning
-  // under a different tool name.
-  it('registers no file tool that reads /files/{id} as JSON', async () => {
-    const tools = await loadAndRegister();
-    for (const tool of tools.values()) {
-      await tool.handler({ id: '745f3319-f473-4d55-9943-fecd942fd76d' }).catch(() => undefined);
-    }
-    expect(mockLexwareRequest).not.toHaveBeenCalled();
+  describe('lexware_get_file_status', () => {
+    // The bare `/files/{id}` route is the binary DOWNLOAD endpoint: verified against
+    // the live API, `Accept: application/json` still answers 200 with Content-Type
+    // application/pdf and the file body base64-encoded. Reading it as metadata
+    // therefore returned the file, never a status — so the `/status` suffix is the
+    // whole point of this tool and is pinned exactly.
+    it('GETs /files/{id}/status, never the bare download route', async () => {
+      mockLexwareRequest.mockResolvedValue({ id: 'f-1', status: 'processed' });
+      const tools = await loadAndRegister();
+      const get = getTool(tools, 'lexware_get_file_status');
+      await get.handler({ id: '745f3319-f473-4d55-9943-fecd942fd76d' });
+      expect(mockLexwareRequest).toHaveBeenCalledExactlyOnceWith(
+        'GET',
+        '/files/745f3319-f473-4d55-9943-fecd942fd76d/status',
+      );
+    });
   });
 
   describe('lexware_deeplink_file', () => {
