@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { normalizeVoucherStatus, VOUCHER_STATUSES } from '../tools/_vouchers.js';
 import { createServer } from '../server.js';
 import { registerVoucherTools } from '../tools/vouchers.js';
+import { registerVoucherlistTools } from '../tools/voucherlist.js';
 
 // Behavioural coverage for the voucher querying surface: status folding, the
 // post-upload retry, and auto-pagination + client-side filtering. The registry
@@ -133,172 +134,138 @@ describe('lexware_get_voucher', () => {
   });
 });
 
-// ─── lexware_list_vouchers — auto-pagination ──────────────────────────────────
+// ─── lexware_list_vouchers — lookup by number ─────────────────────────────────
 
-describe('lexware_list_vouchers — auto-pagination', () => {
-  let handler: (params: unknown) => Promise<any>;
-
-  beforeEach(() => {
-    mocks.lexwareRequest.mockReset();
-    mocks.lexwareRequest.mockResolvedValue({ content: [], totalPages: 1 });
-    handler = captureTools(registerVoucherTools).get('lexware_list_vouchers')!.handler;
-  });
-
-  it('forwards voucherNumber and batch size, always starting at page 0', async () => {
-    await handler({ size: 50, voucherNumber: 'RE-001' });
-    expect(mocks.lexwareRequest).toHaveBeenCalledWith(
-      'GET', '/vouchers', undefined,
-      { page: 0, size: 50, voucherNumber: 'RE-001' },
-    );
-  });
-
-  it('defaults the batch size to 250 when size is omitted', async () => {
-    await handler({});
-    expect(mocks.lexwareRequest).toHaveBeenCalledWith(
-      'GET', '/vouchers', undefined,
-      expect.objectContaining({ page: 0, size: 250 }),
-    );
-  });
-
-  // #65: the API ignores voucherStatus on GET /vouchers. Sending it would look
-  // like a filter while returning unfiltered results.
-  it('never forwards voucherStatus as a query param', async () => {
-    await handler({ voucherStatus: 'OPEN' });
-    const params = mocks.lexwareRequest.mock.calls[0][3];
-    expect(params).not.toHaveProperty('voucherStatus');
-  });
-
-  it('returns the { content, totalCount, fetchedPages, truncated } shape', async () => {
-    mocks.lexwareRequest.mockResolvedValue({ content: [{ id: 'v1' }], totalPages: 1 });
-    const sc = (await handler({})).structuredContent;
-    expect(sc).toEqual({ content: [{ id: 'v1' }], totalCount: 1, fetchedPages: 1, truncated: false });
-  });
-
-  it('auto-paginates until totalPages is exhausted', async () => {
-    mocks.lexwareRequest
-      .mockResolvedValueOnce({ content: [{ id: 'v1' }, { id: 'v2' }], totalPages: 2 })
-      .mockResolvedValueOnce({ content: [{ id: 'v3' }], totalPages: 2 });
-    const sc = (await handler({ size: 2 })).structuredContent;
-    expect(sc.content).toHaveLength(3);
-    expect(sc.totalCount).toBe(3);
-    expect(sc.fetchedPages).toBe(2);
-    expect(sc.truncated).toBe(false);
-    expect(mocks.lexwareRequest).toHaveBeenCalledTimes(2);
-    expect(mocks.lexwareRequest).toHaveBeenNthCalledWith(1, 'GET', '/vouchers', undefined, expect.objectContaining({ page: 0 }));
-    expect(mocks.lexwareRequest).toHaveBeenNthCalledWith(2, 'GET', '/vouchers', undefined, expect.objectContaining({ page: 1 }));
-  });
-
-  it('tolerates a response with no content array', async () => {
-    mocks.lexwareRequest.mockResolvedValue({ totalPages: 1 });
-    const sc = (await handler({})).structuredContent;
-    expect(sc.content).toEqual([]);
-    expect(sc.totalCount).toBe(0);
-  });
-
-  // A silently short result set reads as "that's all there is" — the one wrong
-  // answer this must never give.
-  it('stops at the page cap and flags the result as truncated', async () => {
-    mocks.lexwareRequest.mockResolvedValue({ content: [{ id: 'v' }], totalPages: 5_000 });
-    const sc = (await handler({})).structuredContent;
-    expect(sc.fetchedPages).toBe(100);
-    expect(sc.truncated).toBe(true);
-    expect(mocks.lexwareRequest).toHaveBeenCalledTimes(100);
-  });
-});
-
-// ─── lexware_list_vouchers — client-side filters ──────────────────────────────
-
-describe('lexware_list_vouchers — client-side filters', () => {
+describe('lexware_list_vouchers', () => {
   let schema: z.ZodTypeAny;
   let handler: (params: unknown) => Promise<any>;
 
-  const vouchers = [
-    { id: 'v1', contactName: 'Müller GmbH', voucherDate: '2024-01-10', openAmount: 100, voucherStatus: 'OPEN' },
-    { id: 'v2', contactName: 'Büroplus AG', voucherDate: '2024-03-15', openAmount: 0,   voucherStatus: 'paid' },
-    { id: 'v3', contactName: 'Müller & Co', voucherDate: '2024-06-01', openAmount: 50,  voucherStatus: 'open' },
-    { id: 'v4', contactName: 'Technik GmbH', voucherDate: '2024-08-20', openAmount: 200, status: 'Open' },
-  ];
-
-  const ids = (result: any) => result.structuredContent.content.map((v: any) => v.id);
-
   beforeEach(() => {
     mocks.lexwareRequest.mockReset();
-    mocks.lexwareRequest.mockResolvedValue({ content: vouchers, totalPages: 1 });
+    mocks.lexwareRequest.mockResolvedValue({ content: [] });
     const tool = captureTools(registerVoucherTools).get('lexware_list_vouchers')!;
     schema = tool.schema;
     handler = tool.handler;
   });
 
-  it('contactName % wildcard matches a prefix', async () => {
-    expect(ids(await handler({ contactName: 'Müller%' }))).toEqual(['v1', 'v3']);
+  // Verified against the live API: GET /vouchers without voucherNumber answers
+  // 400 {"IssueList":[{"source":"voucherNumber parameter is required"}]}. It is a
+  // lookup endpoint, not a browsable collection, so the schema has to say so.
+  it('requires voucherNumber', () => {
+    expect(schema.safeParse({}).success).toBe(false);
+    expect(schema.safeParse({ voucherNumber: 'RE-001' }).success).toBe(true);
   });
 
-  it('contactName % wildcard matches a suffix', async () => {
-    expect(ids(await handler({ contactName: '%GmbH' }))).toEqual(['v1', 'v4']);
+  it('forwards voucherNumber with pagination straight through', async () => {
+    await handler({ voucherNumber: 'RE-001', page: 0, size: 100 });
+    expect(mocks.lexwareRequest).toHaveBeenCalledExactlyOnceWith(
+      'GET', '/vouchers', undefined,
+      { page: 0, size: 100, voucherNumber: 'RE-001' },
+    );
   });
 
-  it('contactName _ wildcard matches exactly one char', async () => {
-    // 'Müller & Co': the _ matches the single '&' between the two spaces
-    expect(ids(await handler({ contactName: 'Müller _ Co' }))).toEqual(['v3']);
+  // The browsing/filtering surface belongs to /voucherlist now; nothing here may
+  // quietly reintroduce a filter this endpoint cannot serve.
+  it.each(['contactName', 'hasOpenAmount', 'voucherStatus', 'voucherDateFrom'])(
+    'does not expose the %s filter (that lives on lexware_list_voucherlist)',
+    (field) => {
+      expect(Object.keys((schema as unknown as { shape: object }).shape)).not.toContain(field);
+    },
+  );
+});
+
+// ─── lexware_list_voucherlist — auto-pagination + client-side filters ─────────
+
+describe('lexware_list_voucherlist', () => {
+  let handler: (params: unknown) => Promise<any>;
+
+  const entries = [
+    { id: 'v1', contactName: 'Müller GmbH', openAmount: 100 },
+    { id: 'v2', contactName: 'Büroplus AG', openAmount: 0 },
+    { id: 'v3', contactName: 'Müller & Co', openAmount: 50 },
+    { id: 'v4', contactName: 'Technik GmbH', openAmount: 200 },
+  ];
+
+  const ids = (r: any) => r.structuredContent.content.map((v: any) => v.id);
+
+  beforeEach(() => {
+    mocks.lexwareRequest.mockReset();
+    mocks.lexwareRequest.mockResolvedValue({ content: entries, totalPages: 1, totalElements: 4 });
+    handler = captureTools(registerVoucherlistTools).get('lexware_list_voucherlist')!.handler;
   });
 
-  it('contactName filter is case-insensitive', async () => {
-    expect(ids(await handler({ contactName: 'BÜROPLUS%' }))).toEqual(['v2']);
+  // The default path must stay exactly what it was before this change, or every
+  // existing caller of the raw passthrough shape breaks.
+  it('passes through unchanged when neither fetchAllPages nor a client filter is set', async () => {
+    const result = await handler({ voucherType: 'any', voucherStatus: 'any', fetchAllPages: false });
+    expect(mocks.lexwareRequest).toHaveBeenCalledExactlyOnceWith(
+      'GET', '/voucherlist', undefined,
+      { voucherType: 'any', voucherStatus: 'any' },
+    );
+    expect(result.structuredContent.content).toEqual(entries);
+    expect(result.structuredContent.fetchedPages).toBeUndefined();
   });
 
-  it('voucherStatus filter is case-insensitive on both sides and reads either field', async () => {
-    // v1 'OPEN' (voucherStatus), v3 'open' (voucherStatus), v4 'Open' (status alias)
-    expect(ids(await handler({ voucherStatus: 'Open' }))).toEqual(['v1', 'v3', 'v4']);
+  it('auto-paginates when fetchAllPages is set, preserving API fields', async () => {
+    mocks.lexwareRequest
+      .mockResolvedValueOnce({ content: [{ id: 'a' }], totalPages: 2, totalElements: 2 })
+      .mockResolvedValueOnce({ content: [{ id: 'b' }], totalPages: 2, totalElements: 2 });
+    const sc = (await handler({ fetchAllPages: true })).structuredContent;
+    expect(sc.content).toHaveLength(2);
+    expect(sc.fetchedPages).toBe(2);
+    expect(sc.truncated).toBe(false);
+    expect(sc.totalElements).toBe(2); // spread from the API response, not invented
+    expect(mocks.lexwareRequest).toHaveBeenNthCalledWith(1, 'GET', '/voucherlist', undefined, expect.objectContaining({ page: 0 }));
+    expect(mocks.lexwareRequest).toHaveBeenNthCalledWith(2, 'GET', '/voucherlist', undefined, expect.objectContaining({ page: 1 }));
   });
 
-  it('voucherDateFrom filters inclusively', async () => {
-    expect(ids(await handler({ voucherDateFrom: '2024-06-01' }))).toEqual(['v3', 'v4']);
-  });
-
-  it('voucherDateTo filters inclusively', async () => {
-    expect(ids(await handler({ voucherDateTo: '2024-03-15' }))).toEqual(['v1', 'v2']);
-  });
-
-  it('voucherDateTo includes a same-day voucher carrying a time component', async () => {
-    mocks.lexwareRequest.mockResolvedValue({
-      content: [{ id: 'vt', voucherDate: '2024-03-15T09:00:00.000+01:00' }],
-      totalPages: 1,
-    });
-    expect(ids(await handler({ voucherDateTo: '2024-03-15' }))).toEqual(['vt']);
-  });
-
-  it('voucherDateFrom + voucherDateTo form an inclusive range', async () => {
-    expect(ids(await handler({ voucherDateFrom: '2024-03-15', voucherDateTo: '2024-06-01' }))).toEqual(['v2', 'v3']);
-  });
-
-  it('hasOpenAmount: true excludes vouchers with openAmount === 0', async () => {
-    expect(ids(await handler({ hasOpenAmount: true }))).toEqual(['v1', 'v3', 'v4']);
-  });
-
-  it('multiple filters combine as AND', async () => {
-    expect(ids(await handler({ contactName: 'Müller%', hasOpenAmount: true }))).toEqual(['v1', 'v3']);
-  });
-
-  it('returns an empty content array when nothing matches', async () => {
-    const result = await handler({ contactName: 'Nonexistent%' });
-    expect(result.isError).toBeUndefined();
-    expect(result.structuredContent.content).toEqual([]);
-    expect(result.structuredContent.totalCount).toBe(0);
+  it('stops at the page cap and flags the result as truncated', async () => {
+    mocks.lexwareRequest.mockResolvedValue({ content: [{ id: 'x' }], totalPages: 5_000 });
+    const sc = (await handler({ fetchAllPages: true })).structuredContent;
+    expect(sc.fetchedPages).toBe(100);
+    expect(sc.truncated).toBe(true);
+    expect(mocks.lexwareRequest).toHaveBeenCalledTimes(100);
   });
 
   it.each([
-    ['voucherDateFrom', 'January 2024'],
-    ['voucherDateTo', '15.01.2024'],
-    // End-anchored: a start-anchored pattern accepted these, and the trailing junk
-    // then took part in the lexicographic date comparisons below.
-    ['voucherDateFrom', '2024-01-15junk'],
-    ['voucherDateTo', '2024-01-15T00:00:00'],
-  ])('rejects %s = %p (contract promises an exact date)', (field, value) => {
-    expect(schema.safeParse({ [field]: value }).success).toBe(false);
+    ['Müller%', ['v1', 'v3']],
+    ['%GmbH', ['v1', 'v4']],
+    ['Müller _ Co', ['v3']],
+    ['BÜROPLUS%', ['v2']],
+  ])('contactName %s matches %j (client-side, case-insensitive)', async (pattern, expected) => {
+    expect(ids(await handler({ contactName: pattern }))).toEqual(expected);
   });
 
-  it('accepts YYYY-MM-DD bounds', () => {
-    expect(schema.safeParse({ voucherDateFrom: '2024-01-15', voucherDateTo: '2024-12-31' }).success).toBe(true);
+  it('hasOpenAmount excludes entries with openAmount === 0', async () => {
+    expect(ids(await handler({ hasOpenAmount: true }))).toEqual(['v1', 'v3', 'v4']);
+  });
+
+  it('combines client-side filters as AND', async () => {
+    expect(ids(await handler({ contactName: 'Müller%', hasOpenAmount: true }))).toEqual(['v1', 'v3']);
+  });
+
+  it('a client-side filter alone implies fetching all pages', async () => {
+    mocks.lexwareRequest
+      .mockResolvedValueOnce({ content: [{ id: 'p1', contactName: 'Acme' }], totalPages: 2 })
+      .mockResolvedValueOnce({ content: [{ id: 'p2', contactName: 'Acme' }], totalPages: 2 });
+    const sc = (await handler({ contactName: 'Acme' })).structuredContent;
+    expect(sc.fetchedPages).toBe(2);
+    expect(sc.filteredCount).toBe(2);
+  });
+
+  it('never forwards the client-side params to the API', async () => {
+    await handler({ contactName: 'Acme', hasOpenAmount: true, fetchAllPages: true });
+    const query = mocks.lexwareRequest.mock.calls[0][3];
+    expect(query).not.toHaveProperty('contactName');
+    expect(query).not.toHaveProperty('hasOpenAmount');
+    expect(query).not.toHaveProperty('fetchAllPages');
+  });
+
+  it('returns an empty list rather than erroring when nothing matches', async () => {
+    const result = await handler({ contactName: 'Nonexistent%' });
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent.content).toEqual([]);
+    expect(result.structuredContent.filteredCount).toBe(0);
   });
 });
 

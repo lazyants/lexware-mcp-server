@@ -271,6 +271,16 @@ With an environment variable instead:
 
 `lexware_list_voucherlist`
 
+By default this is a single-page passthrough of the API response. Two additions are opt-in:
+
+- `fetchAllPages: true` follows pagination until every page is retrieved, capped at 100 requests.
+  The result adds `fetchedPages` and `truncated`, the latter marking a set cut short by the cap —
+  API fields such as `totalElements` are preserved.
+- `contactName` (SQL-style `%`/`_` wildcards, case-insensitive) and `hasOpenAmount` filter
+  client-side after fetching, and each implies `fetchAllPages`. They are applied here rather than on
+  `lexware_list_vouchers` because `/voucherlist` is the response shape that carries `contactName`
+  and `openAmount`.
+
 ### Contacts (5 tools) — contacts
 
 `lexware_list_contacts`, `lexware_get_contact`, `lexware_create_contact`, `lexware_update_contact`, `lexware_deeplink_contact`
@@ -283,12 +293,10 @@ With an environment variable instead:
 
 `lexware_list_vouchers`, `lexware_get_voucher`, `lexware_create_voucher`, `lexware_update_voucher`, `lexware_upload_voucher_file`, `lexware_deeplink_voucher`
 
-`lexware_list_vouchers` fetches all pages itself and returns
-`{ content, totalCount, fetchedPages, truncated }` — `size` sets the per-request batch size, not a
-result count, and there is no `page` param. `voucherNumber` is filtered by the API; `voucherStatus`,
-`contactName` (SQL-style `%`/`_` wildcards), `voucherDateFrom`, `voucherDateTo` and `hasOpenAmount`
-are applied client-side, because the Lexware API ignores status filtering on this endpoint. Paging
-stops after 100 requests, with `truncated: true` marking a result set that was cut short.
+`lexware_list_vouchers` **requires** `voucherNumber`. `GET /vouchers` is a lookup endpoint, not a
+browsable collection — the API answers `400 "voucherNumber parameter is required"` without it. To
+browse or filter vouchers, use `lexware_list_voucherlist`, which is the collection endpoint and also
+carries the summary fields (`contactName`, `openAmount`) that `/vouchers` does not.
 
 `lexware_get_voucher` normalizes `voucherStatus` to lowercase and retries a 404 three times
 (1 s / 2 s / 4 s) to cover the indexing delay after an upload; if the voucher is still missing it

@@ -115,66 +115,37 @@ describe('vouchers tool registry', () => {
   });
 
   describe('lexware_list_vouchers', () => {
-    it('GETs /vouchers with the batch size and voucherNumber, paging from 0', async () => {
-      // GOTCHA: This tool owns its paging — it hand-picks the params it forwards
-      // and drives `page` itself, so there is no caller-supplied page to assert.
-      mockLexwareRequest.mockResolvedValue({ content: [], totalPages: 1 });
+    it('GETs /vouchers with voucherNumber and pagination', async () => {
+      // GOTCHA: This tool hand-picks the three params it forwards rather than
+      // spreading `params` — assert all three arrive.
+      mockLexwareRequest.mockResolvedValue({ content: [] });
       const tools = await loadAndRegister();
       const list = getTool(tools, 'lexware_list_vouchers');
-      await list.handler({
-        size: 100,
-        voucherNumber: 'RG-001',
-      });
+      await list.handler({ page: 0, size: 100, voucherNumber: 'RG-001' });
       expectRequest(mockLexwareRequest, {
         method: 'GET',
         url: '/vouchers',
         body: undefined,
-        params: {
-          page: 0,
-          size: 100,
-          voucherNumber: 'RG-001',
-        },
+        params: { page: 0, size: 100, voucherNumber: 'RG-001' },
       });
     });
 
-    it('applies the default batch size and passes undefined for omitted filters', async () => {
-      mockLexwareRequest.mockResolvedValue({ content: [], totalPages: 1 });
+    // GET /vouchers answers 400 "voucherNumber parameter is required" without it —
+    // confirmed against the live API. The old optional param let a caller make a
+    // request that could only ever fail, so the schema now refuses it up front.
+    it('requires voucherNumber, and still exposes no client-side filters', async () => {
       const tools = await loadAndRegister();
       const list = getTool(tools, 'lexware_list_vouchers');
-      await list.handler({});
-      expect(mockLexwareRequest).toHaveBeenCalledExactlyOnceWith(
-        'GET',
-        '/vouchers',
-        undefined,
-        {
-          page: 0,
-          size: 250,
-          voucherNumber: undefined,
-        },
-      );
-    });
-
-    // #65 removed `voucherStatus` because the API ignores it on GET /vouchers. The
-    // param is back as a CLIENT-SIDE filter, so the guarantee that matters is no
-    // longer "absent from the schema" but "never sent as a query param" — asserted
-    // here and in voucher-tools.test.ts. Sending it would present a filter that
-    // silently returns unfiltered results, which is what #65 actually prevented.
-    it('exposes `voucherStatus` as a client-side filter without forwarding it to the API', async () => {
-      mockLexwareRequest.mockResolvedValue({ content: [], totalPages: 1 });
-      const tools = await loadAndRegister();
-      const list = getTool(tools, 'lexware_list_vouchers');
-      const schema = z.object(list.schemaShape as z.ZodRawShape);
-      const jsonSchema = z.toJSONSchema(schema, { io: 'input' }) as {
+      const jsonSchema = z.toJSONSchema(z.object(list.schemaShape as z.ZodRawShape), { io: 'input' }) as {
         properties?: Record<string, unknown>;
+        required?: string[];
       };
-      expect(jsonSchema.properties).toHaveProperty('voucherStatus');
-      expect(jsonSchema.properties).toHaveProperty('voucherNumber');
-      // `page` is gone: the tool paginates internally, so a caller-supplied page
-      // would be silently ignored rather than honoured.
-      expect(jsonSchema.properties).not.toHaveProperty('page');
-
-      await list.handler({ voucherStatus: 'open', voucherNumber: 'RG-1' });
-      expect(mockLexwareRequest.mock.calls[0][3]).not.toHaveProperty('voucherStatus');
+      expect(jsonSchema.required).toContain('voucherNumber');
+      // Browsing and filtering moved to /voucherlist, the endpoint that supports
+      // them and supplies contactName/openAmount.
+      for (const gone of ['voucherStatus', 'contactName', 'hasOpenAmount', 'voucherDateFrom']) {
+        expect(jsonSchema.properties).not.toHaveProperty(gone);
+      }
     });
   });
 
