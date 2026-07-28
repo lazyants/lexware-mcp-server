@@ -261,6 +261,42 @@ describe('lexware_list_voucherlist', () => {
     expect(query).not.toHaveProperty('fetchAllPages');
   });
 
+  // Regression: `page` seeded the aggregate loop, so `page: 5` failed the
+  // `page < totalPages` guard on entry and returned an empty, non-truncated result
+  // WITHOUT making a single request — a filter answering "no matches" without ever
+  // having asked. Rejected at the schema now, and the loop is pinned to 0 as well.
+  describe('page is incompatible with the aggregate modes', () => {
+    let schema: z.ZodTypeAny;
+
+    beforeEach(() => {
+      schema = captureTools(registerVoucherlistTools).get('lexware_list_voucherlist')!.schema;
+    });
+
+    it.each([
+      ['fetchAllPages', { page: 5, fetchAllPages: true }],
+      ['contactName', { page: 5, contactName: 'Acme%' }],
+      ['hasOpenAmount', { page: 5, hasOpenAmount: true }],
+    ])('rejects page combined with %s', (_label, input) => {
+      expect(schema.safeParse(input).success).toBe(false);
+    });
+
+    it('still accepts page on the single-page passthrough path', () => {
+      expect(schema.safeParse({ page: 5 }).success).toBe(true);
+    });
+
+    it('always starts the aggregate walk at page 0, never at a caller offset', async () => {
+      mocks.lexwareRequest.mockResolvedValue({ content: [{ id: 'a' }], totalPages: 1 });
+      const sc = (await handler({ page: 5, fetchAllPages: true })).structuredContent;
+      // Even if the schema were relaxed, the walk must still request page 0 rather
+      // than silently returning nothing.
+      expect(mocks.lexwareRequest).toHaveBeenCalledWith(
+        'GET', '/voucherlist', undefined, expect.objectContaining({ page: 0 }),
+      );
+      expect(sc.fetchedPages).toBe(1);
+      expect(sc.content).toHaveLength(1);
+    });
+  });
+
   it('returns an empty list rather than erroring when nothing matches', async () => {
     const result = await handler({ contactName: 'Nonexistent%' });
     expect(result.isError).toBeUndefined();

@@ -281,6 +281,10 @@ By default this is a single-page passthrough of the API response. Two additions 
   `lexware_list_vouchers` because `/voucherlist` is the response shape that carries `contactName`
   and `openAmount`.
 
+`page` cannot be combined with any of the three — those modes read every page, so a start offset is
+meaningless. Use `size` to control the batch size instead. The combination is rejected rather than
+silently ignored, so nobody can believe an offset was honored when it was not.
+
 ### Contacts (5 tools) — contacts
 
 `lexware_list_contacts`, `lexware_get_contact`, `lexware_create_contact`, `lexware_update_contact`, `lexware_deeplink_contact`

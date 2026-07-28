@@ -59,7 +59,18 @@ export function registerVoucherlistTools(server: McpServer): void {
         'When true, keep only entries with openAmount > 0. Applied client-side after ' +
         'fetching. Implies fetchAllPages.'
       ),
-    }),
+    })
+      // `page` selects one page; the aggregate modes read every page. Combining them
+      // is incoherent, and the alternative — silently ignoring the caller's `page` —
+      // would let someone believe an offset was honoured when it was not.
+      .refine(
+        (d) => !(d.page !== undefined && (d.fetchAllPages || d.contactName !== undefined || d.hasOpenAmount !== undefined)),
+        {
+          message:
+            'page cannot be combined with fetchAllPages, contactName or hasOpenAmount — ' +
+            'those modes read every page. Use size to control the batch size instead.',
+        },
+      ),
     annotations: {
       readOnlyHint: true,
       destructiveHint: false,
@@ -79,7 +90,13 @@ export function registerVoucherlistTools(server: McpServer): void {
 
     const pageSize = query.size ?? MAX_PAGE_SIZE;
     const all: VoucherlistEntry[] = [];
-    let page = query.page ?? 0;
+    // ALWAYS from 0. Seeding this with a caller-supplied `page` meant that `page: 5`
+    // failed the `page < totalPages` guard on entry (totalPages starts at 1), so the
+    // loop never ran: zero requests, empty content, and truncated:false — a filter
+    // reporting "no matches" without ever having asked. The schema now rejects that
+    // combination outright; this stays pinned at 0 so the bug cannot return if the
+    // schema is later relaxed.
+    let page = 0;
     let totalPages = 1;
     let last: VoucherlistResponse = {};
     let requests = 0;
