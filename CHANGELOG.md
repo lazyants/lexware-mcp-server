@@ -10,6 +10,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The publish workflow fails before `npm publish` when the GitHub Release tag
+  and `package.json` version disagree. `check-versions.mjs` proved that
+  `package.json`, `server.json` and the lockfile agreed with each other, but
+  nothing tied that version to the tag the release was cut from — so tagging
+  `v4.9.0` on a commit reading `5.0.0` would have published 5.0.0 to npm and the
+  MCP Registry while the GitHub Release — the artifact humans read — claimed
+  otherwise, silently and on the irreversible side of the publish (#103).
+
+### Changed
+
+- Raised the `@modelcontextprotocol/sdk` floor to `^1.30.0`, which declares
+  `@hono/node-server: ^1.19.9 || ^2.0.5` where 1.29.0 declared only `^1.19.9`.
+  This does **not** change what a fresh, standalone consumer resolves — measured
+  against a packed tarball in an empty project, both the already-published 5.1.0
+  and this build resolve `@hono/node-server` 2.1.1 with `npm audit --omit=dev`
+  clean, because `^1.29.0` already admitted SDK 1.30.0. What it buys is that this
+  repo's `@hono/node-server` override no longer forces a major *outside* the
+  SDK's declared range, and that a resolver cannot fall back to an SDK whose
+  range predates the widening. The override itself stays as a floor pin: the
+  SDK's `^2.0.5` still admits 2.0.5–2.0.9, which sit inside GHSA-9mqv-5hh9-4cgg
+  (#81).
+- The publish job runs on Node 24 (Active LTS) instead of Node 20. npm's Trusted
+  Publishing prerequisite is two-part — npm 11.5.1+ **and** Node 22.14+ — and
+  the job satisfied only the npm half, leaving the irreversible `npm publish`
+  step one npm patch away from breaking if that floor starts being enforced. The
+  CI *test* matrix stays on Node 20 + 22: it tracks `engines.node`, which is
+  unchanged (#102).
+
 ## [5.1.0] — 2026-08-20
 
 ### Added
