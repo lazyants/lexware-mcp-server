@@ -1,10 +1,16 @@
 # lexware-mcp-server
 
-Guidance for working in this repository. **Self-contained** — everything needed to work here safely
-is below. If you are in the `lazy-ants/development/mcp/` fleet checkout, the fleet-root `CLAUDE.md`
-one directory up carries the same cross-cutting rules plus fleet-only material (the publishing
-playbook, the hygiene skill, the sibling servers). A standalone clone of this repo does not have it
-and does not need it.
+Guidance for working in this repository. It carries the **coding and convention** rules — enough to
+write and review code here without another file. It is deliberately NOT the whole story:
+
+- **Validation and CI** are defined by `.github/workflows/test.yml` (the required sequence: `npm ci`,
+  lint, `node scripts/check-versions.mjs`, `npm audit --audit-level=moderate --omit=dev`, build,
+  tests, on the Node 20 + 22 matrix). Read that file — it is versioned here and is the source of
+  truth, not a summary of it.
+- **Releasing** is in `README.md` § Releasing, including the guarded tagging sequence.
+- **Fleet-wide material** — the publishing playbook, the hygiene skill, the sibling servers — is in
+  the fleet-root `CLAUDE.md` of the `lazy-ants/development/mcp/` checkout. A standalone clone does
+  not have it; everything needed to work in *this* repo is here or in the two files named above.
 
 ## Cross-cutting rules (all three lazy-ants MCP servers)
 
@@ -23,8 +29,11 @@ and does not need it.
 - **`@types/node` is capped at the `engines.node` floor** (Node 20). Reject Dependabot major bumps.
 - **Git**: commit right after a change, present-tense imperative subject, never `git add -A`/`.`,
   no `Co-Authored-By` or "Generated with" trailers. Default branch `main`.
-- **Counts in this file are pinned by `src/tests/smoke.test.ts`.** It is the source of truth — if a
-  number here and a number there disagree, the test wins and this file is stale.
+- **Do not add a structural count to this file that no test enforces.** `src/tests/smoke.test.ts`
+  pins the tool-registration counts and nothing else — not module counts, not file counts, not
+  dependency versions. Every other number rots silently, so this file names the command that
+  produces the figure instead of the figure. If you find a bare count here, it is a bug: replace it
+  with its command or delete it.
 
 ## Repository specifics
 
@@ -38,7 +47,8 @@ and does not need it.
 - **Tool naming**: `lexware_<action>_<resource>` (e.g. `lexware_create_invoice`).
 - **Service module**: `src/services/lexware.ts` (axios client). `lexwareDownload()` returns
   `{ data: Buffer, contentType, fileName? }` — **a Buffer, not base64**; the tool-layer wrapper in
-  `src/tools/_download.ts` is what converts it to `dataBase64`. Do not double-encode.
+  `src/tools/_download.ts` is what converts it — its `downloadFileResult()` returns
+  **`contentBase64`** (there is no `dataBase64` field in this repo). Do not double-encode.
   `lexwareUpload()` posts form-data.
 - **Layout**: 1 main + 5 split entry points + 20 tool modules + 66 tools. (4.0.0 removed
   `lexware_create_dunning` — it always 400'd, no standalone `POST /dunnings` form exists; 3.2.0
@@ -68,7 +78,8 @@ and does not need it.
     (unlike Hetzner). State transitions happen via creation-time query params:
     `POST /{resource}?precedingSalesVoucherId={id}[&finalize=true]`. A tool posting to an
     `/actions/` path on a Lexware resource is wrong — verify against the docs before adding one.
-- **Tests**: 41 vitest files under `src/tests/` (21 top-level + 20 in `src/tests/tools/`), 433 tests.
-  They are not uniformly axios-mocked — the suite spans schema, resource, server and round-trip
+- **Tests**: vitest, under `src/tests/` with a `tools/` subdirectory
+  (`find src/tests -name '*.test.ts' | wc -l` for the current file count; `npm test` reports the
+  test total). They are not uniformly axios-mocked — the suite spans schema, resource, server and round-trip
   coverage at different boundaries. `smoke.test.ts` pins the per-entry-point tool counts; keep them
   in sync. `vi.mock()` is hoisted.
