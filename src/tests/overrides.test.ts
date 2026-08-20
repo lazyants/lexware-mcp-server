@@ -21,11 +21,11 @@ import { describe, expect, it } from 'vitest';
 // the INSTALL ROOT, never from an installed dependency's manifest. So this file
 // guards THIS repository's resolution (and therefore its CI audit gate); it does
 // not by itself dictate what an `npx @lazyants/lexware-mcp-server` consumer gets.
-// Measured from a real `npm pack` + install into an empty project (2026-07-27):
-// consumers resolve hono 4.12.32, fast-uri 3.1.4 and body-parser 2.3.0 — all
-// patched, because the SDK's/express's own ranges already permit the fixed
-// versions — but @hono/node-server 1.19.15, which is NOT patched.
-// That last one cannot be fixed from here: GHSA-frvp-7c67-39w9 covers < 2.0.5,
+// Measured with a real `npm pack` + install into an empty project: a consumer
+// resolves every pin here except one to a patched version on its own, because
+// the SDK's and express's declared ranges already permit the fixed versions.
+// The exception is @hono/node-server, and it cannot be fixed from here:
+// GHSA-frvp-7c67-39w9 covers < 2.0.5,
 // i.e. every 1.x with no 1.x patch, while the SDK declares ^1.19.9. Only an SDK
 // release widening that range fixes it for consumers. Runtime exposure is nil
 // either way (stdio-only; the hono code is never imported), but consumers' own
@@ -80,19 +80,30 @@ const PINS: Pin[] = [
     declaredIn: 'overrides',
   },
   {
-    // Advisory range grew to <= 4.12.26 (GHSA-w62v-xxxg-mg59, GHSA-hvrm-45r6-mjfj,
-    // GHSA-xgm2-5f3f-mvvc), so the previous ^4.12.25 pin resolved inside it.
+    // Advisory range currently reaches <= 4.12.33.
     name: 'hono',
-    floor: '4.12.27',
-    advisory: 'GHSA-xrhx-7g5j-rcj5 et al.',
+    floor: '4.12.34',
+    advisory: 'GHSA-8j4g-w8fx-2239 et al.',
     declaredIn: 'overrides',
   },
   {
-    // Advisory range 3.0.0-3.1.3; 3.1.4 is the first 3.x outside it. Stay on
-    // 3.x — `ajv` declares `fast-uri: ^3.0.1`.
+    // Advisory range currently reaches 3.0.0-3.1.4. Stay on 3.x — `ajv`
+    // declares `fast-uri: ^3.0.1`.
     name: 'fast-uri',
-    floor: '3.1.4',
-    advisory: 'GHSA-v2hh-gcrm-f6hx, GHSA-4c8g-83qw-93j6 host confusion',
+    floor: '3.1.5',
+    advisory: 'GHSA-7p8r-x3mc-p8w7 host confusion',
+    declaredIn: 'overrides',
+  },
+  {
+    // The entry is what re-resolves this, not surplus: `express-rate-limit`
+    // declares `^10.2.0`, which the committed 10.2.0 already satisfied, so
+    // `npm install` left it there and the gate stayed red. An `overrides` entry
+    // is the only thing that pulls a sticky lockfile forward on install — which
+    // is also why this was the one transitive dep here that drifted INTO a range
+    // while the pinned ones healed themselves.
+    name: 'ip-address',
+    floor: '10.3.1',
+    advisory: 'GHSA-mwp4-54f8-5fhr et al. SSRF bypass',
     declaredIn: 'overrides',
   },
   {
@@ -149,9 +160,9 @@ describe('security overrides (npm-audit gate regression guard)', () => {
         const entries = resolvedVersions(name);
         // Always assert presence: a pinned package that stops resolving means this
         // guard silently stopped guarding, which is the exact failure mode it exists
-        // to catch. Verified 2026-07-27 that all seven resolve, and that the MCP SDK
-        // declares no optionalDependencies -- hono, @hono/node-server, express and
-        // ajv are all regular deps, so none of these is conditionally installed.
+        // to catch. The MCP SDK declares no optionalDependencies -- hono,
+        // @hono/node-server, express and ajv are all regular deps, so nothing pinned
+        // here is conditionally installed.
         expect(entries.length, `${name} is pinned but resolves nowhere`).toBeGreaterThan(0);
         for (const { path, version } of entries) {
           expect(gte(version, floor), `${path} resolved ${name} ${version} < ${floor}`).toBe(true);

@@ -2,8 +2,9 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { lexwareRequest, lexwareUpload } from '../services/lexware.js';
 import { handleToolRequest, withProcessingRetry, isNotFound } from '../helpers.js';
-import { UuidSchema, MimeTypeSchema, PaginationParams } from '../schemas/common.js';
+import { UuidSchema, PaginationParams } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
+import { uploadInputSchema, resolveUpload } from './_upload.js';
 import { VOUCHER_STATUSES, normalizeVoucherResponse } from './_vouchers.js';
 
 export function registerVoucherTools(server: McpServer): void {
@@ -117,12 +118,13 @@ export function registerVoucherTools(server: McpServer): void {
 
   server.registerTool('lexware_upload_voucher_file', {
     title: 'Upload Voucher File',
-    description: 'Upload a file attachment to a bookkeeping voucher.',
-    inputSchema: z.object({
+    description:
+      'Upload a file attachment to a bookkeeping voucher. Provide either filePath (absolute path ' +
+      'on the MCP server host) or contentBase64 (base64-encoded content) — not both. When using ' +
+      'filePath, fileName is optional (derived from the file name) and contentType is auto-detected ' +
+      'for common image extensions. When using contentBase64, fileName is required.',
+    inputSchema: uploadInputSchema({
       id: UuidSchema.describe('Voucher UUID'),
-      fileName: z.string().describe('Name of the file to upload'),
-      contentBase64: z.string().describe('Base64-encoded file content'),
-      contentType: MimeTypeSchema.optional(),
     }),
     annotations: {
       readOnlyHint: false,
@@ -131,8 +133,8 @@ export function registerVoucherTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    const buffer = Buffer.from(params.contentBase64, 'base64');
-    return lexwareUpload(`/vouchers/${params.id}/files`, buffer, params.fileName, params.contentType || 'application/pdf');
+    const { buffer, fileName, contentType } = resolveUpload(params);
+    return lexwareUpload(`/vouchers/${params.id}/files`, buffer, fileName, contentType);
   }));
 
   server.registerTool('lexware_deeplink_voucher', {

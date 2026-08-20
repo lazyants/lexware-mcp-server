@@ -256,7 +256,52 @@ function formatError(err: AxiosError): Error {
     return new Error(`Lexware API [${standard.status}]: ${standard.message}`, { cause: err });
   }
 
-  return new Error(`Lexware API error: ${err.response.status} ${err.response.statusText}`, { cause: err });
+  // Neither shape matched. Append the raw body rather than dropping it: the API
+  // returns undocumented shapes on some paths (the multipart `type` 400 is
+  // `{"i18nKey":"bad_request_error","source":"Required request parameter 'type' …"}`,
+  // which has no `message` and no `IssueList`), and without this the caller sees only
+  // "400 Bad Request" with the one field naming the cause silently discarded.
+  //
+  // The body is the RESPONSE payload, never request headers, so this cannot surface
+  // the bearer token that sanitizeAxiosError strips from the chained cause.
+  const suffix = formatErrorBody(err.response.data);
+  return new Error(
+    `Lexware API error: ${err.response.status} ${err.response.statusText}${suffix}`,
+    { cause: err },
+  );
+}
+
+// Cap: an error body can be an entire HTML page, or the arraybuffer of a failed
+// binary download. A truncated head still identifies the failure; the untruncated
+// body remains reachable on the chained `cause` for anyone who needs it.
+const MAX_ERROR_BODY_CHARS = 500;
+
+function formatErrorBody(body: unknown): string {
+  if (body === undefined || body === null || body === '') return '';
+
+  let text: string;
+  if (typeof body === 'string') {
+    text = body;
+  } else if (Buffer.isBuffer(body) || body instanceof ArrayBuffer) {
+    // responseType 'arraybuffer' is used by every download path, so a failing
+    // download lands here. Decoding beats "[object ArrayBuffer]".
+    text = Buffer.from(body as ArrayBuffer).toString('utf8');
+  } else {
+    try {
+      text = JSON.stringify(body);
+    } catch {
+      // Circular or otherwise unserializable — the status line still stands alone.
+      return '';
+    }
+  }
+
+  // Strip C0 controls (keeping tab/newline) before trimming: a failed binary
+  // download decodes to NUL runs that trim() does not remove, and splicing raw
+  // control bytes into an Error message helps nobody.
+  // eslint-disable-next-line no-control-regex
+  text = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();
+  if (!text) return '';
+  return ` — ${text.length > MAX_ERROR_BODY_CHARS ? `${text.slice(0, MAX_ERROR_BODY_CHARS)}…` : text}`;
 }
 
 // Headers that must never survive on an AxiosError we chain as `{ cause: err }`.

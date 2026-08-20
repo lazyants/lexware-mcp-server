@@ -117,14 +117,19 @@ describe('files tool registry', () => {
   });
 
   describe('lexware_get_file_status', () => {
-    it('GETs /files/{id}', async () => {
+    // The bare `/files/{id}` route is the binary DOWNLOAD endpoint: verified against
+    // the live API, `Accept: application/json` still answers 200 with Content-Type
+    // application/pdf and the file body base64-encoded. Reading it as metadata
+    // therefore returned the file, never a status — so the `/status` suffix is the
+    // whole point of this tool and is pinned exactly.
+    it('GETs /files/{id}/status, never the bare download route', async () => {
       mockLexwareRequest.mockResolvedValue({ id: 'f-1', status: 'processed' });
       const tools = await loadAndRegister();
       const get = getTool(tools, 'lexware_get_file_status');
       await get.handler({ id: '745f3319-f473-4d55-9943-fecd942fd76d' });
       expect(mockLexwareRequest).toHaveBeenCalledExactlyOnceWith(
         'GET',
-        '/files/745f3319-f473-4d55-9943-fecd942fd76d',
+        '/files/745f3319-f473-4d55-9943-fecd942fd76d/status',
       );
     });
   });
