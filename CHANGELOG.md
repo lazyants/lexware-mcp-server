@@ -10,6 +10,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.1.0] — 2026-08-20
+
+### Added
+
+- Both upload tools (`lexware_upload_file`, `lexware_upload_voucher_file`) accept
+  a `filePath` — an absolute path on the MCP server host — as an alternative to
+  `contentBase64`. Base64 inflates a payload by ~33% and has to travel through
+  the model's context window, so a multi-megabyte scan that is unusable inline is
+  trivial by path. Exactly one of the two must be given; with `filePath`,
+  `fileName` defaults to the file's own name and `contentType` is inferred from
+  the extension (PNG/JPEG/TIFF/XML, falling back to `application/pdf`) (#105).
+- Uploads are capped at 5 MiB of decoded content. The `filePath` branch opens the
+  file once and checks the size from that descriptor before reading, so an
+  oversized file costs one `fstat` rather than a full read into memory, and a
+  non-regular file (a character device such as `/dev/zero`) is rejected outright
+  instead of hanging the server. Over-limit uploads fail with a machine-readable
+  `{ error: "file_too_large", actualSize, maxSize, suggestion }` (#105).
+- `lexware_list_voucherlist` gained `fetchAllPages`, plus two client-side filters
+  applied after fetching: `contactName` (SQL-style `%`/`_` wildcards,
+  case-insensitive) and `hasOpenAmount`. Aggregate responses report
+  `filteredCount`, `fetchedPages` and `truncated` so a short list is never
+  mistaken for a complete one; auto-pagination is bounded at 100 requests (#106).
+
+### Changed
+
+- `lexware_get_voucher` now retries a 404 three times (1 s / 2 s / 4 s) to absorb
+  the indexing delay after an upload, and answers
+  `{ voucherId, status: "processing", message }` if the voucher is still missing
+  rather than failing. Any other status still surfaces as a tool error — a 401 or
+  500 reported as "still processing" would tell the caller to wait for something
+  that is never coming. The response's `voucherStatus` is also normalized to its
+  canonical lowercase form, and the `status` alias is dropped, so a filter for
+  `Open` no longer silently matches nothing (#106).
+- `lexware_get_file_status` now calls `GET /files/{id}/status`. It previously
+  called the binary download route, which answers 200 with the file body — so it
+  returned a file where a status was expected. The tool needs an API key carrying
+  the file-status scope; keys without it get `access_denied` from Lexware (#105).
+- `lexware_list_vouchers` is documented and typed as a lookup, not a browsable
+  collection: `voucherNumber` is now a **required** input, because `GET /vouchers`
+  rejects any call without it with HTTP 400. No call that previously succeeded is
+  affected — such a call always failed at the API — but the rejection now happens
+  at the MCP input boundary and `voucherNumber` appears in the published schema's
+  `required` array. Use `lexware_list_voucherlist` to browse or filter; it is the
+  collection endpoint and carries the summary fields (`contactName`,
+  `openAmount`) that `/vouchers` does not (#106).
+- `fileName` and `contentBase64` are no longer unconditionally required on the
+  upload tools' published schemas — the constraint moved into cross-field rules
+  (`fileName` is required only with `contentBase64`). Existing base64 calls are
+  unaffected (#105).
+
+### Fixed
+
+- Refreshed the `overrides` floors for `hono` (`^4.12.34`), `fast-uri`
+  (`^3.1.5`) and `ip-address` (new, `^10.3.1`). Three advisory ranges had grown
+  past the previous pins, reddening `npm audit --audit-level=moderate
+  --omit=dev` on an untouched `main` and on every open pull request. `ip-address`
+  had no pin at all, which is why it drifted into range while the pinned
+  packages re-resolved themselves (#110).
+
+### Dependencies
+
+- `@modelcontextprotocol/sdk` 1.29.0 → 1.30.0, plus `axios`, `globals` and
+  `typescript-eslint` within the minor-and-patch group (#109).
+
 ## [5.0.0] — 2026-07-27
 
 ### Removed
@@ -447,6 +511,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[5.1.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.1.0
 [5.0.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.0.0
 [4.2.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v4.2.0
 [4.1.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v4.1.0
