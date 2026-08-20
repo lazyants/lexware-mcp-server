@@ -17,8 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `package.json`, `server.json` and the lockfile agreed with each other, but
   nothing tied that version to the tag the release was cut from — so tagging
   `v4.9.0` on a commit reading `5.0.0` would have published 5.0.0 to npm and the
-  MCP Registry while the Release humans read claimed otherwise, silently and on
-  the irreversible side of the publish (#103).
+  MCP Registry while the GitHub Release — the artifact humans read — claimed
+  otherwise, silently and on the irreversible side of the publish (#103).
 
 ### Changed
 

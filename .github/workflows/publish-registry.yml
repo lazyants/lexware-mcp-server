@@ -50,8 +50,8 @@ jobs:
       # tag the release was cut from. For a `release` event GITHUB_REF_NAME is
       # the tag name, so tagging v4.9.0 on a commit whose package.json says
       # 5.0.0 would publish 5.0.0 to npm and the MCP Registry while the GitHub
-      # Release humans read claims otherwise — silently, and on the
-      # irreversible side of `npm publish`.
+      # Release — the artifact humans read — claims otherwise, silently, and on
+      # the irreversible side of `npm publish`.
       - name: Verify release tag matches package version
         run: |
           version=$(node -p "require('./package.json').version")
