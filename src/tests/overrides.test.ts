@@ -142,11 +142,15 @@ const PINS: Pin[] = [
   },
   {
     // Dev-only (eslint -> minimatch), so it never reaches the `--omit=dev` gate
-    // — but it rotted the same way: the previous ^5.0.6 pin sat inside
-    // GHSA-mh99-v99m-4gvg (<= 5.0.7). Guarded here so it cannot rot unnoticed.
+    // — but it keeps rotting, and this entry exists to make each rot visible:
+    // ^5.0.6 sat inside GHSA-mh99-v99m-4gvg (< 5.0.8), then ^5.0.8 sat inside
+    // GHSA-rgw5-rvv9-x895 (< 5.0.9, published 2026-08-03), caught by the MR
+    // reviewer bot on #112 rather than by this test — the assertion can only
+    // check the floor it is given, so range growth is found by re-reading the
+    // advisory, never by a green run. Re-read before trusting this number.
     name: 'brace-expansion',
-    floor: '5.0.8',
-    advisory: 'GHSA-mh99-v99m-4gvg, GHSA-3jxr-9vmj-r5cp ReDoS',
+    floor: '5.0.9',
+    advisory: 'GHSA-rgw5-rvv9-x895, GHSA-mh99-v99m-4gvg, GHSA-3jxr-9vmj-r5cp ReDoS/DoS',
     declaredIn: 'overrides',
   },
   {
