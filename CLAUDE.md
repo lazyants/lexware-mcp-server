@@ -29,11 +29,11 @@ write and review code here without another file. It is deliberately NOT the whol
 - **`@types/node` is capped at the `engines.node` floor** (Node 20). Reject Dependabot major bumps.
 - **Git**: commit right after a change, present-tense imperative subject, never `git add -A`/`.`,
   no `Co-Authored-By` or "Generated with" trailers. Default branch `main`.
-- **Do not add a structural count to this file that no test enforces.** `src/tests/smoke.test.ts`
-  pins the tool-registration counts and nothing else — not module counts, not file counts, not
-  dependency versions. Every other number rots silently, so this file names the command that
-  produces the figure instead of the figure. If you find a bare count here, it is a bug: replace it
-  with its command or delete it.
+- **This file does not restate structure that lives in code.** No inventories, no counts, no
+  duplicated tables — a copy of a fact rots the moment the code moves, and nothing here is checked
+  by any test. Where you need a structural fact, read the file that owns it (named below in each
+  case) or run the one-liner. If you find a bare count or a duplicated table here, it is a bug:
+  delete it and point at the source.
 
 ## Repository specifics
 
@@ -50,19 +50,16 @@ write and review code here without another file. It is deliberately NOT the whol
   `src/tools/_download.ts` is what converts it — its `downloadFileResult()` returns
   **`contentBase64`** (there is no `dataBase64` field in this repo). Do not double-encode.
   `lexwareUpload()` posts form-data.
-- **Layout**: 1 main + 5 split entry points + 20 tool modules + 66 tools. (4.0.0 removed
-  `lexware_create_dunning` — it always 400'd, no standalone `POST /dunnings` form exists; 3.2.0
-  added e-invoice XML `format` on the 3 XRechnung-capable voucher download tools + 3 deeplink
-  tools; 3.0.0 removed `lexware_finalize_invoice` + `lexware_pursue_quotation`.)
+- **Layout**: one main entry plus split entry binaries. `src/index.ts` and `src/entry-*.ts` are the
+  entries; `package.json` `bin` maps each to its published command; `src/tools/` holds the tool
+  modules and `src/tools/registrars.ts` the barrel. `src/tests/smoke.test.ts` asserts the tool count
+  per entry point — read it for the current numbers, and update it in the same commit as any tool
+  addition or removal.
 
-  | Entry | Bin |
-  |---|---|
-  | `src/index.ts` | `lexware-mcp-server` |
-  | `src/entry-sales.ts` | `lexware-mcp-sales` |
-  | `src/entry-contacts.ts` | `lexware-mcp-contacts` |
-  | `src/entry-bookkeeping.ts` | `lexware-mcp-bookkeeping` |
-  | `src/entry-reference.ts` | `lexware-mcp-reference` |
-  | `src/entry-system.ts` | `lexware-mcp-system` |
+  Removals worth knowing: 4.0.0 dropped `lexware_create_dunning` (it always 400'd — no standalone
+  `POST /dunnings` form exists); 3.2.0 added e-invoice XML `format` to the XRechnung-capable voucher
+  download tools and the deeplink tools; 3.0.0 dropped `lexware_finalize_invoice` and
+  `lexware_pursue_quotation`.
 
 - **Conventions**:
   - Optimistic locking: PUT requests require a `version` field in the body.
