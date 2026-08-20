@@ -315,6 +315,25 @@ With an environment variable instead:
 
 `lexware_upload_file`, `lexware_download_file`, `lexware_get_file_status`, `lexware_deeplink_file`
 
+`lexware_get_file_status` calls `GET /files/{id}/status`. The bare `GET /files/{id}` is the binary
+download route — with `Accept: application/json` it still answers `200` with the file body
+base64-encoded, so it can never yield status metadata. The status route is scope-gated: API keys
+without the necessary permission get `access_denied` from Lexware rather than a status.
+
+Both upload tools (`lexware_upload_file` and `lexware_upload_voucher_file`) take the file either as
+`contentBase64` or as `filePath` — an absolute path readable by the MCP server process. Prefer
+`filePath` for anything sizeable: base64 inflates the payload by about a third and has to travel
+through the model's context window. With `filePath`, `fileName` defaults to the file's base name and
+`contentType` is auto-detected for `.png`, `.jpg`/`.jpeg`, `.tiff`/`.tif` and `.xml`, falling back
+to `application/pdf`. Provide exactly one of the two — supplying both, or neither, is a validation
+error.
+
+Uploads are capped at 5 MB. For `filePath` the size is taken from the opened descriptor *before* the
+file is read, so an oversized file costs a stat rather than a full load into memory, and anything
+that is not a regular file is refused outright (reading `/dev/zero` would otherwise never return).
+The decoded byte count is checked again afterwards, which also covers `contentBase64`. Failures
+carry a `file_too_large` error with the actual and maximum sizes.
+
 ### Recurring Templates (3 tools) — system
 
 `lexware_list_recurring_templates`, `lexware_get_recurring_template`, `lexware_deeplink_recurring_template`

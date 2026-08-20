@@ -113,9 +113,17 @@ describe('tools/list round-trip: required[] and describe() propagation', () => {
   // produced — same description, same pattern (sourced from the shared
   // MIME_TYPE_RE, not a hardcoded copy), and contentType still correctly absent
   // from required[] (the zod-4 `optin` trap this file exists to catch).
+  //
+  // The required[] arrays below carry a SECOND guarantee since filePath landed:
+  // fileName and contentBase64 are now optional at the JSON-Schema level (either
+  // may be omitted depending on which source the caller picks), so the mutual
+  // exclusion is enforced by the schema's refinements instead — which is exactly
+  // the kind of constraint that does NOT survive into required[]. Asserting the
+  // shrunken arrays keeps a future "tighten this back up" from silently making
+  // filePath-only calls unrepresentable on the wire.
   it.each([
-    ['lexware_upload_file', registerFileTools, ['fileName', 'contentBase64']],
-    ['lexware_upload_voucher_file', registerVoucherTools, ['id', 'fileName', 'contentBase64']],
+    ['lexware_upload_file', registerFileTools, []],
+    ['lexware_upload_voucher_file', registerVoucherTools, ['id']],
   ] as const)(
     '%s: contentType carries the shared MIME pattern/description and stays out of required[]',
     async (name, register, required) => {
@@ -126,7 +134,9 @@ describe('tools/list round-trip: required[] and describe() propagation', () => {
           'MIME type, defaults to application/pdf'
         );
         expect(tool.inputSchema.properties?.contentType?.pattern).toBe(MIME_TYPE_RE.source);
-        expect(tool.inputSchema.required).toEqual(required);
+        // `?? []` because an all-optional shape omits required[] entirely rather
+        // than emitting an empty array — see lexware_list_articles above.
+        expect(tool.inputSchema.required ?? []).toEqual(required);
       } finally {
         await client.close();
       }

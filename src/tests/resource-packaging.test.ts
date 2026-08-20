@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { execFileSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { existsSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -13,6 +13,23 @@ const here = dirname(fileURLToPath(import.meta.url)); // src/tests
 const repoRoot = resolve(here, '..', '..');
 const distDir = join(repoRoot, 'dist');
 
+// The two npm invocations below go through a shell (execSync), which is what makes
+// this file run on Windows. There `npm` is `npm.cmd`, and `execFileSync('npm', …)`
+// cannot find it — CreateProcess does not apply PATHEXT, so it fails with
+// "spawnSync npm ENOENT" before any test runs. Naming `npm.cmd` explicitly does not
+// help either: since the CVE-2024-27980 fix (Node 18.20.2 / 20.12.2) spawning a .cmd
+// or .bat WITHOUT a shell throws EINVAL outright.
+//
+// KEEP BOTH COMMANDS AS STRING LITERALS. They are constants today, so nothing
+// interpolated ever reaches the shell. If a path or version ever needs to be passed
+// in, do not template it into these strings — switch that call to execFileSync with
+// an argv array (and, on win32, resolve npm's cli.js and run it via process.execPath)
+// rather than quoting by hand.
+//
+// execSync over execFileSync + `shell: true`: the latter is DEP0190-deprecated for
+// exactly this shape, since it concatenates the argv array into the shell string
+// unescaped — same exposure, plus a warning on every run.
+
 const require = createRequire(import.meta.url);
 const pkg = require(join(repoRoot, 'package.json')) as {
   bin: Record<string, string>;
@@ -25,7 +42,7 @@ const binTargets = Object.values(pkg.bin);
 // non-clean dist could ship stale/orphaned compiled files that npm pack would pass.
 beforeAll(() => {
   rmSync(distDir, { recursive: true, force: true });
-  execFileSync('npm', ['run', 'build'], { cwd: repoRoot, stdio: 'pipe' });
+  execSync('npm run build', { cwd: repoRoot, stdio: 'pipe' });
 }, 180_000);
 
 describe('compiled dist resource', () => {
@@ -41,7 +58,7 @@ describe('compiled dist resource', () => {
 
 describe('npm pack packaging', () => {
   it('ships the compiled resource and keeps dist/entry-*.js <-> bin parity', () => {
-    const out = execFileSync('npm', ['pack', '--dry-run', '--json'], {
+    const out = execSync('npm pack --dry-run --json', {
       cwd: repoRoot,
       encoding: 'utf8',
     });
