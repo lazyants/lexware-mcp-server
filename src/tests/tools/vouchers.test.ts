@@ -115,57 +115,37 @@ describe('vouchers tool registry', () => {
   });
 
   describe('lexware_list_vouchers', () => {
-    it('GETs /vouchers with explicit page/size/voucherNumber params', async () => {
-      // GOTCHA: This tool hand-picks the three allowed params rather than
-      // spreading `params` — assert all three are forwarded.
+    it('GETs /vouchers with voucherNumber and pagination', async () => {
+      // GOTCHA: This tool hand-picks the three params it forwards rather than
+      // spreading `params` — assert all three arrive.
       mockLexwareRequest.mockResolvedValue({ content: [] });
       const tools = await loadAndRegister();
       const list = getTool(tools, 'lexware_list_vouchers');
-      await list.handler({
-        page: 0,
-        size: 100,
-        voucherNumber: 'RG-001',
-      });
+      await list.handler({ page: 0, size: 100, voucherNumber: 'RG-001' });
       expectRequest(mockLexwareRequest, {
         method: 'GET',
         url: '/vouchers',
         body: undefined,
-        params: {
-          page: 0,
-          size: 100,
-          voucherNumber: 'RG-001',
-        },
+        params: { page: 0, size: 100, voucherNumber: 'RG-001' },
       });
     });
 
-    it('passes undefined for omitted params (services strips them downstream)', async () => {
-      mockLexwareRequest.mockResolvedValue({ content: [] });
+    // GET /vouchers answers 400 "voucherNumber parameter is required" without it —
+    // confirmed against the live API. The old optional param let a caller make a
+    // request that could only ever fail, so the schema now refuses it up front.
+    it('requires voucherNumber, and still exposes no client-side filters', async () => {
       const tools = await loadAndRegister();
       const list = getTool(tools, 'lexware_list_vouchers');
-      await list.handler({});
-      expect(mockLexwareRequest).toHaveBeenCalledExactlyOnceWith(
-        'GET',
-        '/vouchers',
-        undefined,
-        {
-          page: undefined,
-          size: undefined,
-          voucherNumber: undefined,
-        },
-      );
-    });
-
-    it('no longer exposes the undocumented `voucherStatus` filter (removed in #65 — status filtering lives on /voucherlist)', async () => {
-      const tools = await loadAndRegister();
-      const list = getTool(tools, 'lexware_list_vouchers');
-      const schema = z.object(list.schemaShape as z.ZodRawShape);
-      const jsonSchema = z.toJSONSchema(schema, { io: 'input' }) as {
+      const jsonSchema = z.toJSONSchema(z.object(list.schemaShape as z.ZodRawShape), { io: 'input' }) as {
         properties?: Record<string, unknown>;
+        required?: string[];
       };
-      expect(jsonSchema.properties).not.toHaveProperty('voucherStatus');
-      expect(jsonSchema.properties).toHaveProperty('voucherNumber');
-      // Non-strict Zod strips the now-unknown key before it reaches the handler.
-      expect(schema.parse({ voucherStatus: 'open', voucherNumber: 'RG-1' })).not.toHaveProperty('voucherStatus');
+      expect(jsonSchema.required).toContain('voucherNumber');
+      // Browsing and filtering moved to /voucherlist, the endpoint that supports
+      // them and supplies contactName/openAmount.
+      for (const gone of ['voucherStatus', 'contactName', 'hasOpenAmount', 'voucherDateFrom']) {
+        expect(jsonSchema.properties).not.toHaveProperty(gone);
+      }
     });
   });
 
