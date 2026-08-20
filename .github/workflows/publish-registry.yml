@@ -20,23 +20,47 @@ jobs:
       # `NODE_AUTH_TOKEN`, which then gets populated with the runner's
       # GITHUB_TOKEN. npm publish tries to auth with that, fails, and
       # returns a misleading 404 — TP never fires.
+      #
+      # Node 24 (Active LTS), NOT the package's own `engines.node` floor of 20.
+      # This job only publishes; it never runs the package. npm's Trusted
+      # Publishing docs state a two-part prerequisite — npm 11.5.1+ AND
+      # Node 22.14+ — and Node 20 satisfied only the npm half, leaving the
+      # irreversible `npm publish` step one npm patch release away from
+      # breaking if that floor ever starts being enforced.
+      #
+      # The CI *test* matrix (Node 20 + 22) is deliberately separate: it
+      # tracks `engines.node` and must not follow this pin.
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
 
-      # Node 20 LTS ships with npm 10, which predates Trusted Publishing
-      # (added in npm 11.5+). Without this upgrade, `npm publish` ignores
-      # the OIDC env vars and exits with ENEEDAUTH.
-      #
-      # Pinned to npm@^11 (not @latest) to keep the release path
-      # reproducible: npm 12 may raise its Node engine floor above
-      # the runner's Node 20, which would silently break releases on
-      # any branch or scheduled run without a repo-level change.
+      # Node 24 ships npm 11.x, but the exact minor is not guaranteed across
+      # runner image updates and Trusted Publishing needs 11.5.1+. Pinned to
+      # npm@^11 (not @latest) to keep the release path reproducible: npm 12
+      # may raise its Node engine floor above the runner's Node, which would
+      # silently break releases without a repo-level change.
       - name: Upgrade npm to a TP-capable version
         run: npm install -g npm@^11
 
       - name: Verify version sync
         run: node scripts/check-versions.mjs
+
+      # `check-versions.mjs` proves package.json, server.json and the lockfile
+      # agree with each other, but nothing tied that agreed-upon version to the
+      # tag the release was cut from. For a `release` event GITHUB_REF_NAME is
+      # the tag name, so tagging v4.9.0 on a commit whose package.json says
+      # 5.0.0 would publish 5.0.0 to npm and the MCP Registry while the GitHub
+      # Release humans read claims otherwise — silently, and on the
+      # irreversible side of `npm publish`.
+      - name: Verify release tag matches package version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          tag="${GITHUB_REF_NAME}"
+          if [ "$tag" != "v${version}" ]; then
+            echo "::error::Release tag ${tag} does not match package.json version ${version}"
+            exit 1
+          fi
+          echo "Release tag ${tag} matches package.json version ${version}"
 
       - name: Install dependencies and build
         run: |

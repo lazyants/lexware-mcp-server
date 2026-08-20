@@ -22,14 +22,23 @@ import { describe, expect, it } from 'vitest';
 // guards THIS repository's resolution (and therefore its CI audit gate); it does
 // not by itself dictate what an `npx @lazyants/lexware-mcp-server` consumer gets.
 // Measured with a real `npm pack` + install into an empty project: a consumer
-// resolves every pin here except one to a patched version on its own, because
-// the SDK's and express's declared ranges already permit the fixed versions.
-// The exception is @hono/node-server, and it cannot be fixed from here:
-// GHSA-frvp-7c67-39w9 covers < 2.0.5,
-// i.e. every 1.x with no 1.x patch, while the SDK declares ^1.19.9. Only an SDK
-// release widening that range fixes it for consumers. Runtime exposure is nil
-// either way (stdio-only; the hono code is never imported), but consumers' own
-// `npm audit` will flag it. Tracked as a follow-up issue.
+// resolves every pin here to a patched version on its own, because the SDK's and
+// express's declared ranges already permit the fixed versions.
+//
+// @hono/node-server was the one exception, and it resolved itself upstream in
+// two steps. When #81 was filed, GHSA-frvp-7c67-39w9 listed only `< 2.0.5` —
+// every 1.x affected, no 1.x patch — while the SDK declared `^1.19.9`, so no
+// resolution cleared it. Then hono backported the fix to 1.19.15 (2026-07-24)
+// and the advisory gained a `< 1.19.15` branch, and SDK 1.30.0 (2026-07-27)
+// widened its range to `^1.19.9 || ^2.0.5`. Either change alone is enough for a
+// FRESH consumer resolve; neither reaches a sticky lockfile pinned before those
+// dates, and `overrides` cannot reach one either.
+//
+// Re-measured 2026-08-20, packed tarball into an empty project:
+// @hono/node-server 2.1.1, `npm audit --omit=dev` clean. The already-published
+// 5.1.0 measures identically — `^1.29.0` admits SDK 1.30.0 — so raising the
+// floor to `^1.30.0` did not change what a fresh, standalone consumer resolves;
+// what it does buy is recorded on the @hono/node-server pin below.
 
 const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
@@ -107,14 +116,19 @@ const PINS: Pin[] = [
     declaredIn: 'overrides',
   },
   {
-    // Forced MAJOR against the SDK's declared `^1.19.9`. Safe because this
-    // server only ever uses StdioServerTransport: following the ESM import
-    // graph from src/server.ts (sdk/server/mcp.js + /stdio.js) reaches no hono
-    // code at all — only sdk/server/streamableHttp.js imports it, and nothing
-    // we load imports that. Revisit if the HTTP transport is ever adopted.
-    // Floor is 2.0.10, NOT the 2.0.5 of the path-traversal advisory alone:
-    // GHSA-9mqv-5hh9-4cgg (WebSocket-handshake memory-leak DoS) covers
-    // <= 2.0.9, so a ^2.0.5 pin would itself sit inside a live range.
+    // No longer a forced MAJOR: SDK 1.30.0 declares `^1.19.9 || ^2.0.5`, so 2.x
+    // is inside the SDK's own range. The entry stays because the FLOOR is still
+    // load-bearing — it is 2.0.10, NOT the 2.0.5 of the path-traversal advisory
+    // alone: GHSA-9mqv-5hh9-4cgg (WebSocket-handshake memory-leak DoS) covers
+    // 2.0.0-2.0.9 and 1.x not at all, so the SDK's `^2.0.5` still admits four
+    // vulnerable patches on the branch we want. A fresh resolve picks the newest
+    // 2.x anyway; the override is what pulls a sticky lockfile forward, the same
+    // mechanism the `ip-address` entry needed. Runtime exposure is nil
+    // regardless: this server only ever uses StdioServerTransport, and following
+    // the ESM import graph from src/server.ts (sdk/server/mcp.js + /stdio.js)
+    // reaches no hono code at all — only sdk/server/streamableHttp.js imports
+    // it, and nothing we load imports that. Revisit if the HTTP transport is
+    // ever adopted.
     name: '@hono/node-server',
     floor: '2.0.10',
     advisory: 'GHSA-frvp-7c67-39w9 path traversal, GHSA-9mqv-5hh9-4cgg DoS',
