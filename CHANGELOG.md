@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.2.0] — 2026-08-20
+
 ### Added
 
 - The publish workflow fails before `npm publish` when the GitHub Release tag
@@ -39,6 +41,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   step one npm patch away from breaking if that floor starts being enforced. The
   CI *test* matrix stays on Node 20 + 22: it tracks `engines.node`, which is
   unchanged (#102).
+
+### Fixed
+
+- Raised the `brace-expansion` override floor to `^5.0.9`. GHSA-rgw5-rvv9-x895
+  (published 2026-08-03) covers `>= 4.0.0, < 5.0.9`, so the previous `^5.0.8`
+  pin — correct when written — had drifted inside a live advisory range. This is
+  a devDependency (eslint → minimatch) and never reached the `--omit=dev` CI
+  gate, which was green throughout; the published runtime package is unaffected.
+  It is the second rot on this same pin, and the guard test cannot catch the
+  class: it asserts the floor it is given, so a range growing past a correct pin
+  still produces a green run. That is now recorded on the entry itself (#112).
 
 ## [5.1.0] — 2026-08-20
 
@@ -541,6 +554,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[5.2.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.2.0
 [5.1.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.1.0
 [5.0.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.0.0
 [4.2.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v4.2.0
