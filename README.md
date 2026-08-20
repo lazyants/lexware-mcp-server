@@ -391,7 +391,7 @@ Releases ship via the GitHub Release event. Maintainer flow:
      gh release create "v$V" --verify-tag --notes-file "/tmp/notes-v$V.md"
    ```
 
-   The failure this prevents: with no existing tag, `gh release create` places one on the **tip of the default branch**, so running it while the bump is still on a release branch tags the *previous* release's commit. The workflow then publishes whatever version it finds in that commit's `package.json`, and you get a `vX.Y.Z` GitHub Release that silently republishes the old version. Nothing downstream catches it — neither the workflow nor `check-versions` compares the tag against the version files (tracked in #103), which is why the sequence above has to do it.
+   The failure this prevents: with no existing tag, `gh release create` places one on the **tip of the default branch**, so running it while the bump is still on a release branch tags the *previous* release's commit. The workflow then publishes whatever version it finds in that commit's `package.json`, and you get a `vX.Y.Z` GitHub Release that silently republishes the old version. Since 5.2.0 the publish workflow itself refuses to continue when `GITHUB_REF_NAME` is not `v<package.json version>` (#103), so a mis-tagged release now fails before `npm publish` rather than silently republishing. That guard fires only once the workflow is already running, though — the sequence above is what stops the wrong commit being tagged in the first place, so keep using it rather than relying on the workflow to catch the mistake.
 
    Each element is load-bearing:
 
