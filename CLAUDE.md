@@ -29,11 +29,13 @@ write and review code here without another file. It is deliberately NOT the whol
 - **`@types/node` is capped at the `engines.node` floor** (Node 20). Reject Dependabot major bumps.
 - **Git**: commit right after a change, present-tense imperative subject, never `git add -A`/`.`,
   no `Co-Authored-By` or "Generated with" trailers. Default branch `main`.
-- **This file does not restate structure that lives in code.** No inventories, no counts, no
-  duplicated tables — a copy of a fact rots the moment the code moves, and nothing here is checked
-  by any test. Where you need a structural fact, read the file that owns it (named below in each
-  case) or run the one-liner. If you find a bare count or a duplicated table here, it is a bug:
-  delete it and point at the source.
+- **This file does not restate CURRENT STRUCTURE that lives in code** — module inventories, tool or
+  file counts, entry/split tables. A copy of such a fact rots the moment the code moves and no test
+  checks it, so read the file that owns it (named below in each case) instead. Finding one here is
+  a bug: delete it and point at the source.
+  **Exempt, and deliberately kept:** fixed conventions that are limits rather than measurements
+  (the 1–2 sentence description cap), dependency and runtime versions, and dated historical notes
+  about past releases — those record what happened, which cannot go stale.
 
 ## Repository specifics
 
