@@ -84,7 +84,8 @@ interface Pin {
 const PINS: Pin[] = [
   {
     name: 'qs',
-    floor: '6.15.2',
+    floor: '6.16.0',
+    // GHSA-x5fp-wj9c-mxmx and GHSA-4mjr-xmp4-gh2g extended the range through 6.15.3.
     advisory: 'GHSA-q8mj-m7cp-5q26 DoS',
     declaredIn: 'overrides',
   },
@@ -96,10 +97,11 @@ const PINS: Pin[] = [
     declaredIn: 'overrides',
   },
   {
-    // Advisory range currently reaches 3.0.0-3.1.4. Stay on 3.x — `ajv`
-    // declares `fast-uri: ^3.0.1`.
+    // Advisory range now reaches 3.0.0-3.1.5, extended by GHSA-5jgf-p345-68v8,
+    // GHSA-f65p-4m7j-42xc, GHSA-fph4-wmhf-6fwf and GHSA-jqff-g426-hqxp. Stay on
+    // 3.x — `ajv` declares `fast-uri: ^3.0.1`.
     name: 'fast-uri',
-    floor: '3.1.5',
+    floor: '3.1.7',
     advisory: 'GHSA-7p8r-x3mc-p8w7 host confusion',
     declaredIn: 'overrides',
   },
