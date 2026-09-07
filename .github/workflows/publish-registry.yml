@@ -113,16 +113,24 @@ jobs:
       # metadata-only check can let `mcp-publisher publish` race a 404.
       - name: Wait for npm registry propagation
         run: |
+          # npm's own publish output says the package "may take a few minutes to
+          # become available", so a 90s budget raced it and lost: the publish
+          # succeeded, this step failed, and the MCP Registry step below was
+          # skipped — leaving npm ahead of the registry with nothing red left to
+          # explain it. The loop still exits the moment the tarball is fetchable,
+          # so a fast propagation costs nothing.
+          attempts=60
+          delay=10
           version=$(node -p "require('./package.json').version")
-          for i in {1..18}; do
+          for i in $(seq 1 "$attempts"); do
             tarball=$(npm view "@lazyants/lexware-mcp-server@${version}" dist.tarball 2>/dev/null || true)
             if [ -n "$tarball" ] && curl -fsSIL "$tarball" >/dev/null 2>&1; then
-              echo "npm tarball fetchable after ${i} retries: $tarball"
+              echo "npm tarball fetchable after ${i} attempts: $tarball"
               exit 0
             fi
-            sleep 5
+            sleep "$delay"
           done
-          echo "::error::npm tarball not fetchable after 90s — aborting"
+          echo "::error::npm tarball not fetchable after $((attempts * delay))s — aborting"
           exit 1
 
       - name: Authenticate and publish to MCP Registry
