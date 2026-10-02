@@ -66,7 +66,10 @@ describe('npm pack packaging', () => {
     const parsed = JSON.parse(out.slice(out.indexOf('['))) as Array<{
       files: Array<{ path: string }>;
     }>;
-    const files = parsed[0].files.map((f) => f.path);
+    const files = parsed[0].files.map((f) => f.path.replace(/\\/g, '/'));
+
+    expect(files.some((f) => f.startsWith('dist/tests/') || f.endsWith('.test.js'))).toBe(false);
+    expect(files.some((f) => f.endsWith('.map'))).toBe(false);
 
     // (i) the compiled resource ships
     expect(files).toContain('dist/resources/lexware-reference.js');

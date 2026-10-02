@@ -72,6 +72,25 @@ if (errors.length) {
   process.exit(1);
 }
 
+// Ordinary CI remains an offline sync check, including on released main.
+// Publishing opts in and fails closed unless npm confirms this version is absent.
+if (process.argv.includes('--require-unpublished')) {
+  try {
+    if (typeof pkg.name !== 'string' || !pkg.name) throw new Error('missing package.json#/name');
+    const url = `https://registry.npmjs.org/${encodeURIComponent(pkg.name)}/${encodeURIComponent(npmVersion)}`;
+    const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+    if (response.status !== 404) {
+      throw new Error(response.ok
+        ? `${pkg.name}@${npmVersion} is already published; bump the version before publishing`
+        : `npm returned HTTP ${response.status}; could not verify an unpublished version`);
+    }
+    console.log(`[check-versions] OK — ${pkg.name}@${npmVersion} is not published on npm`);
+  } catch (error) {
+    console.error(`[check-versions] FAIL: ${error.message}`);
+    process.exit(1);
+  }
+}
+
 console.log(
   `[check-versions] OK — npm=${npmVersion}, lock=${lockVersion}, packages[0]=${packagesVersion}, registry=${registryVersion}`
 );

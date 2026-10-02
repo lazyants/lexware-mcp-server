@@ -14,12 +14,12 @@
     "lexware-mcp-system": "dist/entry-system.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && tsc --noEmit",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json && tsc --noEmit",
     "start": "node dist/index.js",
     "test": "vitest run",
     "lint": "eslint .",
     "check-versions": "node scripts/check-versions.mjs",
-    "prepublishOnly": "node scripts/check-versions.mjs && npm run build"
+    "prepublishOnly": "node scripts/check-versions.mjs --require-unpublished && npm run build"
   },
   "engines": {
     "node": ">=20"
