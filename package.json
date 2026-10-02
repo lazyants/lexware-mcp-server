@@ -14,12 +14,12 @@
     "lexware-mcp-system": "dist/entry-system.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && tsc --noEmit",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json && tsc --noEmit",
     "start": "node dist/index.js",
     "test": "vitest run",
     "lint": "eslint .",
     "check-versions": "node scripts/check-versions.mjs",
-    "prepublishOnly": "node scripts/check-versions.mjs && npm run build"
+    "prepublishOnly": "node scripts/check-versions.mjs --require-unpublished && npm run build"
   },
   "engines": {
     "node": ">=20"
@@ -56,7 +56,7 @@
   "overrides": {
     "fast-uri": "^3.1.8",
     "brace-expansion": "^5.0.12",
-    "hono": "^4.13.7",
+    "hono": "^4.13.11",
     "ip-address": "^10.7.1",
     "qs": "^6.16.0",
     "@hono/node-server": "^2.0.10",

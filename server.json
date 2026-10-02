@@ -19,6 +19,20 @@
       "registryType": "npm",
       "identifier": "@lazyants/lexware-mcp-server",
       "version": "5.2.0",
+      "environmentVariables": [
+        {
+          "name": "LEXWARE_API_TOKEN",
+          "description": "Lexware Office API token; required when no token is stored in the OS keyring.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "LEXWARE_KEYRING_SERVICE",
+          "description": "OS keyring service containing the API token.",
+          "default": "lexware-mcp",
+          "isRequired": false
+        }
+      ],
       "transport": {
         "type": "stdio"
       }

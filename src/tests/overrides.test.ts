@@ -96,10 +96,10 @@ const PINS: Pin[] = [
     declaredIn: 'overrides',
   },
   {
-    // The latest Hono advisory extends the affected range through 4.13.6.
+    // serveStatic double decoding bypasses middleware before 4.13.11.
     name: 'hono',
-    floor: '4.13.7',
-    advisory: 'GHSA-hxh3-vqpv-xpqv et al.',
+    floor: '4.13.11',
+    advisory: 'GHSA-5r4p-p66f-jhc7, GHSA-hxh3-vqpv-xpqv et al.',
     declaredIn: 'overrides',
   },
   {
