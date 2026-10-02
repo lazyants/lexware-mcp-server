@@ -83,6 +83,12 @@ interface Pin {
 
 const PINS: Pin[] = [
   {
+    name: 'axios',
+    floor: '1.20.0',
+    advisory: 'GHSA-m8m8-qj5v-23w3 et al.',
+    declaredIn: 'dependencies',
+  },
+  {
     name: 'qs',
     floor: '6.16.0',
     // GHSA-x5fp-wj9c-mxmx and GHSA-4mjr-xmp4-gh2g extended the range through 6.15.3.
@@ -90,21 +96,17 @@ const PINS: Pin[] = [
     declaredIn: 'overrides',
   },
   {
-    // Advisory range currently reaches <= 4.12.33.
+    // The latest Hono advisory extends the affected range through 4.13.6.
     name: 'hono',
-    floor: '4.12.34',
-    advisory: 'GHSA-8j4g-w8fx-2239 et al.',
+    floor: '4.13.7',
+    advisory: 'GHSA-hxh3-vqpv-xpqv et al.',
     declaredIn: 'overrides',
   },
   {
-    // Advisory range now reaches 3.0.0-3.1.5, extended by GHSA-5jgf-p345-68v8,
-    // GHSA-f65p-4m7j-42xc, GHSA-fph4-wmhf-6fwf and GHSA-jqff-g426-hqxp, so 3.1.6
-    // is the first unaffected release. The floor takes 3.1.7, the current top of
-    // the 3.x line: above the minimum costs nothing and absorbs the next advisory
-    // that lands inside 3.1.6. Stay on 3.x — `ajv` declares `fast-uri: ^3.0.1`.
+    // Stay on 3.x — ajv declares ^3.0.1; the host-normalization fix is 3.1.8.
     name: 'fast-uri',
-    floor: '3.1.7',
-    advisory: 'GHSA-7p8r-x3mc-p8w7 host confusion',
+    floor: '3.1.8',
+    advisory: 'GHSA-hrr3-gc8f-f4qj host normalization',
     declaredIn: 'overrides',
   },
   {
@@ -115,8 +117,8 @@ const PINS: Pin[] = [
     // is also why this was the one transitive dep here that drifted INTO a range
     // while the pinned ones healed themselves.
     name: 'ip-address',
-    floor: '10.3.1',
-    advisory: 'GHSA-mwp4-54f8-5fhr et al. SSRF bypass',
+    floor: '10.7.1',
+    advisory: 'GHSA-j6r3-76f7-8jcv, GHSA-h3mg-xc3c-68pw',
     declaredIn: 'overrides',
   },
   {
@@ -151,10 +153,11 @@ const PINS: Pin[] = [
     // GHSA-rgw5-rvv9-x895 (< 5.0.9, published 2026-08-03), caught by the MR
     // reviewer bot on #112 rather than by this test — the assertion can only
     // check the floor it is given, so range growth is found by re-reading the
-    // advisory, never by a green run. Re-read before trusting this number.
+    // advisory, never by a green run. GHSA-q2hr-2g5m-vwhr now extends the affected
+    // range through 5.0.11. Re-read before trusting this number.
     name: 'brace-expansion',
-    floor: '5.0.9',
-    advisory: 'GHSA-rgw5-rvv9-x895, GHSA-mh99-v99m-4gvg, GHSA-3jxr-9vmj-r5cp ReDoS/DoS',
+    floor: '5.0.12',
+    advisory: 'GHSA-q2hr-2g5m-vwhr et al. ReDoS/DoS',
     declaredIn: 'overrides',
   },
   {

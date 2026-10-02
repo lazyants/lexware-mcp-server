@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `format: "xml"` on `lexware_download_file` for available e-invoice XML originals. PDF remains
   the default; XML embedded in a PDF cannot be retrieved separately (#70).
 
+### Fixed
+
+- Refresh dependency security floors for Axios, Hono, fast-uri, ip-address,
+  brace-expansion and Vitest, and resolve patched PostCSS and nanoid versions
+  in the lockfile so the required production audit can pass again.
+
 ## [5.2.0] — 2026-08-20
 
 ### Added
