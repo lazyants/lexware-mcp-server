@@ -12,7 +12,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # NOTE: do NOT set `registry-url` here. With Trusted Publishing
       # the OIDC token is the only credential we want present; setting
@@ -30,7 +30,7 @@ jobs:
       #
       # The CI *test* matrix (Node 20 + 22) is deliberately separate: it
       # tracks `engines.node` and must not follow this pin.
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
 
@@ -74,8 +74,8 @@ jobs:
       # Bump in lockstep across all sibling repos.
       - name: Install mcp-publisher
         env:
-          MCP_PUBLISHER_VERSION: v1.7.8
-          MCP_PUBLISHER_SHA256: 48230dbec85bd88a0d42977ef533cddda23235f0db4331b9263ce53b432cb75c
+          MCP_PUBLISHER_VERSION: v1.8.1
+          MCP_PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
         run: |
           curl -fsSL -o mcp-publisher.tar.gz \
             "https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
