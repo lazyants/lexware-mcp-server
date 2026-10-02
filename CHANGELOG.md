@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Explain external webhook handlers, HTTP 200/204 acknowledgement within 5 seconds,
   asynchronous queue processing, and rate-limited API calls in MCP and README guidance (#122).
 
+### Fixed
+
+- Refresh dependency security floors for Axios, Hono, fast-uri, ip-address,
+  brace-expansion and Vitest, and resolve patched PostCSS and nanoid versions
+  in the lockfile so the required production audit can pass again.
+
 ## [5.2.0] — 2026-08-20
 
 ### Added
