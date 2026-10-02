@@ -259,6 +259,10 @@ With an environment variable instead:
 
 `lexware_create_delivery_note`, `lexware_get_delivery_note`, `lexware_download_delivery_note_file`, `lexware_pursue_delivery_note`, `lexware_deeplink_delivery_note`
 
+The standalone invoice, credit-note, quotation, order-confirmation and delivery-note create tools
+accept `finalize: true` to finalize at creation. Omit it or set `false` to create a draft; only
+explicit `true` sends the API's `?finalize=true` query parameter.
+
 ### Down Payment Invoices (3 tools) — sales
 
 `lexware_get_down_payment_invoice`, `lexware_download_down_payment_invoice_file`, `lexware_deeplink_down_payment_invoice`
@@ -270,6 +274,11 @@ With an environment variable instead:
 ### Voucherlist (1 tool) — sales, bookkeeping
 
 `lexware_list_voucherlist`
+
+For incremental sync, `updatedDateFrom` and `updatedDateTo` filter the last modification date
+(`yyyy-MM-dd`, full days in CET/CEST). `sort` accepts `voucherDate`, `voucherNumber`, `createdDate`
+or `updatedDate` followed by `ASC` or `DESC`, for example `updatedDate,DESC`. Status filters include
+`transferred` and `sepadebit`; the transient `overdue` status cannot be combined with other statuses.
 
 By default this is a single-page passthrough of the API response. Two additions are opt-in:
 
@@ -288,6 +297,9 @@ silently ignored, so nobody can believe an offset was honored when it was not.
 ### Contacts (5 tools) — contacts
 
 `lexware_list_contacts`, `lexware_get_contact`, `lexware_create_contact`, `lexware_update_contact`, `lexware_deeplink_contact`
+
+`lexware_deeplink_contact` returns `deeplink` and the permanent alias `url`, both containing the
+same contact URL. Either output key is supported.
 
 ### Articles (5 tools) — contacts
 
@@ -346,6 +358,10 @@ of Lexware's delivery retries. Throttle outgoing API calls to respect the API ra
 ### Files (4 tools) — system
 
 `lexware_upload_file`, `lexware_download_file`, `lexware_get_file_status`, `lexware_deeplink_file`
+
+`lexware_download_file` accepts `format: "pdf"` (default) or `format: "xml"` to retrieve an
+available e-invoice XML original. XML embedded in a PDF cannot be retrieved separately; Lexware
+returns 404 when the requested XML is unavailable. Downloads return the bytes as `contentBase64`.
 
 `lexware_get_file_status` calls `GET /files/{id}/status`. The bare `GET /files/{id}` is the binary
 download route — with `Accept: application/json` it still answers `200` with the file body

@@ -22,12 +22,11 @@ export const SortParam = {
   sort: z.string().optional().describe('Sort field and direction, e.g. "createdDate,DESC"'),
 };
 
-// Optional download representation selector for the three XRechnung-capable voucher
-// download tools (invoices, credit notes, down-payment invoices). Defaults to 'pdf'
+// Optional download representation selector for the XRechnung-capable voucher
+// download tools and generic files. Defaults to 'pdf'
 // so existing behaviour is byte-for-byte unchanged; 'xml' requests the XRechnung XML
 // e-invoice. NOT applied to the PDF-only download tools (quotations, delivery notes,
-// dunnings, order confirmations — the Lexware API returns 406 for non-PDF there) or
-// the generic `lexware_download_file` tool.
+// dunnings, order confirmations — the Lexware API returns 406 for non-PDF there).
 export const DownloadFormat = z
   .enum(['pdf', 'xml'])
   .default('pdf')

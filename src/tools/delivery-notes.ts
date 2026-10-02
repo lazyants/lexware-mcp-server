@@ -10,10 +10,13 @@ import { SALES_TEXT_FORMATTING_DESCRIPTION } from './_text-formatting.js';
 export function registerDeliveryNoteTools(server: McpServer): void {
   server.registerTool('lexware_create_delivery_note', {
     title: 'Create Delivery Note',
-    description: 'Create a new delivery note in Lexware. ' + SALES_TEXT_FORMATTING_DESCRIPTION,
+    description: 'Create a new delivery note in Lexware; finalize=true finalizes at creation, false or omitted creates a draft. ' + SALES_TEXT_FORMATTING_DESCRIPTION,
     inputSchema: z.object({
       body: z.record(z.string(), z.unknown()).describe(
         'Delivery note JSON body with voucherDate, address (contactId or manual fields), lineItems (name, quantity, unitPrice), totalPrice, and taxConditions. ' + SALES_TEXT_FORMATTING_DESCRIPTION
+      ),
+      finalize: z.boolean().optional().describe(
+        'When true, finalize the delivery note at creation via ?finalize=true. When false or omitted, create as draft.'
       ),
     }),
     annotations: {
@@ -23,7 +26,8 @@ export function registerDeliveryNoteTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    return lexwareRequest('POST', '/delivery-notes', params.body);
+    const query = params.finalize === true ? { finalize: true } : undefined;
+    return lexwareRequest('POST', '/delivery-notes', params.body, query);
   }));
 
   server.registerTool('lexware_get_delivery_note', {

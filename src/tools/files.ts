@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { lexwareRequest, lexwareUpload } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
-import { UuidSchema } from '../schemas/common.js';
+import { UuidSchema, DownloadFormat, downloadAccept } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
 import { downloadFileResult } from './_download.js';
 import { uploadInputSchema, resolveUpload } from './_upload.js';
@@ -31,9 +31,12 @@ export function registerFileTools(server: McpServer): void {
 
   server.registerTool('lexware_download_file', {
     title: 'Download File',
-    description: 'Download a file from Lexware. Returns the file as base64-encoded content.',
+    description: 'Download a file from Lexware as base64-encoded content. Choose pdf (default) or xml for an available e-invoice XML original.',
     inputSchema: z.object({
       id: UuidSchema.describe('File UUID'),
+      format: DownloadFormat.describe(
+        'Representation to request: "pdf" (default) or "xml" for an available e-invoice XML file; XML embedded in a PDF cannot be retrieved separately.'
+      ),
     }),
     annotations: {
       readOnlyHint: true,
@@ -42,7 +45,11 @@ export function registerFileTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    return downloadFileResult(`/files/${params.id}`, 'file');
+    return downloadFileResult(
+      `/files/${params.id}`,
+      (contentType) => /xml/i.test(contentType) ? 'file.xml' : 'file',
+      params.format === 'xml' ? downloadAccept(params.format) : undefined,
+    );
   }));
 
   server.registerTool('lexware_get_file_status', {

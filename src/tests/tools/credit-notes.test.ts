@@ -44,6 +44,7 @@ describe('credit-notes tool registry', () => {
         'POST',
         '/credit-notes',
         body,
+        undefined,
       );
     });
   });

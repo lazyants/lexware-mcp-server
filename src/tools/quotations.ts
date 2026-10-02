@@ -10,10 +10,13 @@ import { SALES_TEXT_FORMATTING_DESCRIPTION } from './_text-formatting.js';
 export function registerQuotationTools(server: McpServer): void {
   server.registerTool('lexware_create_quotation', {
     title: 'Create Quotation',
-    description: 'Create a new quotation in Lexware. ' + SALES_TEXT_FORMATTING_DESCRIPTION,
+    description: 'Create a new quotation in Lexware; finalize=true finalizes at creation, false or omitted creates a draft. ' + SALES_TEXT_FORMATTING_DESCRIPTION,
     inputSchema: z.object({
       body: z.record(z.string(), z.unknown()).describe(
         'Quotation JSON body with voucherDate, expirationDate, address (contactId or manual fields), lineItems (name, quantity, unitPrice), totalPrice, and taxConditions. ' + SALES_TEXT_FORMATTING_DESCRIPTION
+      ),
+      finalize: z.boolean().optional().describe(
+        'When true, finalize the quotation at creation via ?finalize=true. When false or omitted, create as draft.'
       ),
     }),
     annotations: {
@@ -23,7 +26,8 @@ export function registerQuotationTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    return lexwareRequest('POST', '/quotations', params.body);
+    const query = params.finalize === true ? { finalize: true } : undefined;
+    return lexwareRequest('POST', '/quotations', params.body, query);
   }));
 
   server.registerTool('lexware_get_quotation', {
