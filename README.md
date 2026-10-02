@@ -289,6 +289,9 @@ silently ignored, so nobody can believe an offset was honored when it was not.
 
 `lexware_list_contacts`, `lexware_get_contact`, `lexware_create_contact`, `lexware_update_contact`, `lexware_deeplink_contact`
 
+`lexware_deeplink_contact` returns `deeplink` and the permanent alias `url`, both containing the
+same contact URL. Either output key is supported.
+
 ### Articles (5 tools) — contacts
 
 `lexware_list_articles`, `lexware_get_article`, `lexware_create_article`, `lexware_update_article`, `lexware_delete_article`
