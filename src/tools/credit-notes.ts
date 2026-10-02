@@ -5,14 +5,15 @@ import { handleToolRequest } from '../helpers.js';
 import { UuidSchema, DownloadFormat, downloadAccept, downloadFallbackName } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
 import { downloadFileResult } from './_download.js';
+import { SALES_TEXT_FORMATTING_DESCRIPTION } from './_text-formatting.js';
 
 export function registerCreditNoteTools(server: McpServer): void {
   server.registerTool('lexware_create_credit_note', {
     title: 'Create Credit Note',
-    description: 'Create a new credit note in Lexware.',
+    description: 'Create a new credit note in Lexware. ' + SALES_TEXT_FORMATTING_DESCRIPTION,
     inputSchema: z.object({
       body: z.record(z.string(), z.unknown()).describe(
-        'Credit note JSON body. Key fields: voucherDate, address (object with contactId or manual fields), lineItems (array with name, quantity, unitPrice, etc.), totalPrice (object), taxConditions (object). See Lexware API docs for full schema.'
+        'Credit note JSON body with voucherDate, address (contactId or manual fields), lineItems (name, quantity, unitPrice), totalPrice, and taxConditions. ' + SALES_TEXT_FORMATTING_DESCRIPTION
       ),
     }),
     annotations: {
@@ -67,15 +68,14 @@ export function registerCreditNoteTools(server: McpServer): void {
   server.registerTool('lexware_pursue_credit_note', {
     title: 'Pursue to a Credit Note',
     description:
-      'Create a new credit note as a follow-up to a preceding invoice. ' +
-      'Maps to the documented `POST /credit-notes?precedingSalesVoucherId={id}[&finalize=true]` endpoint. ' +
-      'Set finalize=true to immediately finalize the credit note; omit or false to create as draft.',
+      'Create a new credit note from an invoice via `POST /credit-notes?precedingSalesVoucherId={id}[&finalize=true]`; finalize=true finalizes the credit note, false or omitted creates a draft. ' +
+      SALES_TEXT_FORMATTING_DESCRIPTION,
     inputSchema: z.object({
       precedingSalesVoucherId: UuidSchema.describe(
         'UUID of the preceding invoice that this credit note is pursued from.'
       ),
       body: z.record(z.string(), z.unknown()).describe(
-        'Credit note JSON body. Same shape as lexware_create_credit_note. See Lexware API docs for full schema.'
+        'Credit note JSON body with voucherDate, address, lineItems, totalPrice, and taxConditions. ' + SALES_TEXT_FORMATTING_DESCRIPTION
       ),
       finalize: z.boolean().optional().describe(
         'When true, creates the credit note in finalized status (immediately paid-off, reducing the invoice open amount). ' +

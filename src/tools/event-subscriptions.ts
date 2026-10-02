@@ -17,10 +17,12 @@ const EVENT_TYPE_DESCRIPTION =
 export function registerEventSubscriptionTools(server: McpServer): void {
   server.registerTool('lexware_create_event_subscription', {
     title: 'Create Event Subscription',
-    description: 'Create a new webhook event subscription in Lexware.',
+    description: 'Create a Lexware webhook subscription for an external callback handler; this MCP server manages subscriptions and verifies signatures but does not host a receiver. Acknowledge with HTTP 200/204 within 5 seconds, enqueue the payload for asynchronous processing, and throttle outgoing API calls to respect rate limits.',
     inputSchema: z.object({
       eventType: z.string().describe(EVENT_TYPE_DESCRIPTION),
-      callbackUrl: z.string().url().describe('Webhook URL'),
+      callbackUrl: z.string().url().describe(
+        'Webhook URL hosted by your application. Return HTTP 200/204 within 5000 ms, enqueue the payload for asynchronous processing, and throttle outgoing API calls to respect rate limits.'
+      ),
     }),
     annotations: {
       readOnlyHint: false,

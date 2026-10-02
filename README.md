@@ -334,6 +334,15 @@ returns `{ voucherId, status: "processing", message }`. Other failures are repor
 
 `lexware_create_event_subscription`, `lexware_list_event_subscriptions`, `lexware_get_event_subscription`, `lexware_delete_event_subscription`, `lexware_verify_webhook_signature`
 
+Your application hosts the callback handler; this MCP server manages subscriptions and verifies
+signatures but does not host a receiver. Acknowledge callbacks promptly with HTTP 200 or 204
+within Lexware's 5-second (5000 ms) timeout, enqueue the received payload, and process it
+asynchronously.
+
+Use the queue to absorb event bursts and apply controlled processing retries/backoff independently
+of Lexware's delivery retries. Throttle outgoing API calls to respect the API rate limits. See
+[Lexware's event-subscription best practices](https://developers.lexware.io/docs/#event-subscriptions-endpoint-purpose-best-practices).
+
 ### Files (4 tools) — system
 
 `lexware_upload_file`, `lexware_download_file`, `lexware_get_file_status`, `lexware_deeplink_file`

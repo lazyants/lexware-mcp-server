@@ -73,10 +73,12 @@ export function registerVoucherTools(server: McpServer): void {
 
   server.registerTool('lexware_update_voucher', {
     title: 'Update Voucher',
-    description: 'Update an existing bookkeeping voucher in Lexware. Requires version field for optimistic locking.',
+    description: 'Update a bookkeeping voucher with the current version for optimistic locking. If the existing voucher is unchecked, the update must transition voucherStatus to open.',
     inputSchema: z.object({
       id: UuidSchema.describe('Voucher UUID'),
-      body: z.record(z.string(), z.unknown()).describe('Voucher JSON with version field for optimistic locking'),
+      body: z.record(z.string(), z.unknown()).describe(
+        'Voucher JSON with the current version field required for optimistic locking. If the existing voucher is unchecked, the update must transition voucherStatus to open; this constraint does not apply to vouchers already in other statuses.'
+      ),
     }),
     annotations: {
       readOnlyHint: false,

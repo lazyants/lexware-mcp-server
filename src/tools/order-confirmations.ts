@@ -5,14 +5,15 @@ import { handleToolRequest } from '../helpers.js';
 import { UuidSchema } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
 import { downloadFileResult } from './_download.js';
+import { SALES_TEXT_FORMATTING_DESCRIPTION } from './_text-formatting.js';
 
 export function registerOrderConfirmationTools(server: McpServer): void {
   server.registerTool('lexware_create_order_confirmation', {
     title: 'Create Order Confirmation',
-    description: 'Create a new order confirmation in Lexware.',
+    description: 'Create a new order confirmation in Lexware. ' + SALES_TEXT_FORMATTING_DESCRIPTION,
     inputSchema: z.object({
       body: z.record(z.string(), z.unknown()).describe(
-        'Order confirmation JSON body. Key fields: voucherDate, address (object with contactId or manual fields), lineItems (array with name, quantity, unitPrice, etc.), totalPrice (object), taxConditions (object). See Lexware API docs for full schema.'
+        'Order confirmation JSON body with voucherDate, address (contactId or manual fields), lineItems (name, quantity, unitPrice), totalPrice, and taxConditions. ' + SALES_TEXT_FORMATTING_DESCRIPTION
       ),
     }),
     annotations: {
@@ -60,14 +61,14 @@ export function registerOrderConfirmationTools(server: McpServer): void {
   server.registerTool('lexware_pursue_order_confirmation', {
     title: 'Pursue to an Order Confirmation',
     description:
-      'Create a new order confirmation as a follow-up to a preceding quotation. ' +
-      'Maps to the documented `POST /order-confirmations?precedingSalesVoucherId={id}` endpoint.',
+      'Create a new order confirmation from a quotation via `POST /order-confirmations?precedingSalesVoucherId={id}`. ' +
+      SALES_TEXT_FORMATTING_DESCRIPTION,
     inputSchema: z.object({
       precedingSalesVoucherId: UuidSchema.describe(
         'UUID of the preceding quotation that this order confirmation is pursued from.'
       ),
       body: z.record(z.string(), z.unknown()).describe(
-        'Order confirmation JSON body. Same shape as lexware_create_order_confirmation. See Lexware API docs for full schema.'
+        'Order confirmation JSON body with voucherDate, address, lineItems, totalPrice, and taxConditions. ' + SALES_TEXT_FORMATTING_DESCRIPTION
       ),
     }),
     annotations: {
