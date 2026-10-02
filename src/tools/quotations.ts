@@ -5,14 +5,15 @@ import { handleToolRequest } from '../helpers.js';
 import { UuidSchema } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
 import { downloadFileResult } from './_download.js';
+import { SALES_TEXT_FORMATTING_DESCRIPTION } from './_text-formatting.js';
 
 export function registerQuotationTools(server: McpServer): void {
   server.registerTool('lexware_create_quotation', {
     title: 'Create Quotation',
-    description: 'Create a new quotation in Lexware. Set finalize=true to finalize at creation; false or omitted creates a draft.',
+    description: 'Create a new quotation in Lexware; finalize=true finalizes at creation, false or omitted creates a draft. ' + SALES_TEXT_FORMATTING_DESCRIPTION,
     inputSchema: z.object({
       body: z.record(z.string(), z.unknown()).describe(
-        'Quotation JSON body. Key fields: voucherDate, expirationDate, address (object with contactId or manual fields), lineItems (array with name, quantity, unitPrice, etc.), totalPrice (object), taxConditions (object). See Lexware API docs for full schema.'
+        'Quotation JSON body with voucherDate, expirationDate, address (contactId or manual fields), lineItems (name, quantity, unitPrice), totalPrice, and taxConditions. ' + SALES_TEXT_FORMATTING_DESCRIPTION
       ),
       finalize: z.boolean().optional().describe(
         'When true, finalize the quotation at creation via ?finalize=true. When false or omitted, create as draft.'
