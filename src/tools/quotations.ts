@@ -9,10 +9,13 @@ import { downloadFileResult } from './_download.js';
 export function registerQuotationTools(server: McpServer): void {
   server.registerTool('lexware_create_quotation', {
     title: 'Create Quotation',
-    description: 'Create a new quotation in Lexware.',
+    description: 'Create a new quotation in Lexware. Set finalize=true to finalize at creation; false or omitted creates a draft.',
     inputSchema: z.object({
       body: z.record(z.string(), z.unknown()).describe(
         'Quotation JSON body. Key fields: voucherDate, expirationDate, address (object with contactId or manual fields), lineItems (array with name, quantity, unitPrice, etc.), totalPrice (object), taxConditions (object). See Lexware API docs for full schema.'
+      ),
+      finalize: z.boolean().optional().describe(
+        'When true, finalize the quotation at creation via ?finalize=true. When false or omitted, create as draft.'
       ),
     }),
     annotations: {
@@ -22,7 +25,8 @@ export function registerQuotationTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    return lexwareRequest('POST', '/quotations', params.body);
+    const query = params.finalize === true ? { finalize: true } : undefined;
+    return lexwareRequest('POST', '/quotations', params.body, query);
   }));
 
   server.registerTool('lexware_get_quotation', {

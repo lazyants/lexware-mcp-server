@@ -35,10 +35,10 @@ describe('files tool registry', () => {
     ]);
   });
 
-  it('keeps lexware_download_file UNCHANGED: no format param (the generic /files/{id} tool is excluded from XML)', async () => {
+  it('exposes a format selector for generic file downloads', async () => {
     const tools = await loadAndRegister();
     const dl = getTool(tools, 'lexware_download_file');
-    expect(dl.schemaShape).not.toHaveProperty('format');
+    expect(dl.schemaShape).toHaveProperty('format');
     expect(dl.schemaShape).toHaveProperty('id');
   });
 

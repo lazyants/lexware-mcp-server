@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Creation-time `finalize` on the standalone quotation, credit-note, order-confirmation and
+  delivery-note tools. Only explicit `true` forwards `?finalize=true`; false or omitted creates
+  a draft (#70).
+- `updatedDateFrom`, `updatedDateTo` and `sort` on `lexware_list_voucherlist`, including
+  documentation of the `transferred` and `sepadebit` status filters (#70).
+- `format: "xml"` on `lexware_download_file` for available e-invoice XML originals. PDF remains
+  the default; XML embedded in a PDF cannot be retrieved separately (#70).
+
 ## [5.2.0] — 2026-08-20
 
 ### Added

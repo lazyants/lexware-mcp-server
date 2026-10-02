@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { lexwareRequest } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
-import { UuidSchema, PaginationParams } from '../schemas/common.js';
+import { UuidSchema, PaginationParams, SortParam } from '../schemas/common.js';
 import { MAX_PAGE_SIZE } from '../constants.js';
 import { wildcardMatch } from './_vouchers.js';
 
@@ -37,7 +37,7 @@ export function registerVoucherlistTools(server: McpServer): void {
         'Voucher type(s), comma-separated, or "any" for no type filter (default). Values: invoice, creditnote, orderconfirmation, quotation, deliverynote, downpaymentinvoice, dunning, purchaseinvoice, purchasecreditnote'
       ),
       voucherStatus: z.string().default('any').describe(
-        'Voucher status(es), comma-separated, or "any" for no status filter (default). Values: draft, open, overdue, paid, paidoff, voided, accepted, rejected, unchecked'
+        'Voucher status(es), comma-separated, or "any" for no status filter (default). Values: draft, open, overdue, paid, paidoff, voided, transferred, sepadebit, accepted, rejected, unchecked. overdue cannot be combined with other statuses.'
       ),
       contactId: UuidSchema.optional().describe('Filter by contact UUID'),
       voucherDateFrom: z.string().optional().describe('Filter vouchers from date (ISO, e.g. "2024-01-01")'),
@@ -46,6 +46,11 @@ export function registerVoucherlistTools(server: McpServer): void {
       archived: z.boolean().optional().describe('Filter by archived status'),
       createdDateFrom: z.string().optional().describe('Filter by creation date from (yyyy-MM-dd)'),
       createdDateTo: z.string().optional().describe('Filter by creation date to (yyyy-MM-dd)'),
+      updatedDateFrom: z.string().optional().describe('Filter by last modification date from (yyyy-MM-dd, full day in CET/CEST)'),
+      updatedDateTo: z.string().optional().describe('Filter by last modification date to (yyyy-MM-dd, full day in CET/CEST)'),
+      sort: SortParam.sort.describe(
+        'Sort by voucherDate, voucherNumber, createdDate or updatedDate, followed by ASC or DESC, e.g. "updatedDate,DESC".'
+      ),
       fetchAllPages: z.boolean().default(false).describe(
         'When true, follow pagination until every page is retrieved (capped at ' +
         `${MAX_AUTO_PAGES} requests) instead of returning a single page.`

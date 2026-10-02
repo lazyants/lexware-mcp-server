@@ -9,10 +9,13 @@ import { downloadFileResult } from './_download.js';
 export function registerDeliveryNoteTools(server: McpServer): void {
   server.registerTool('lexware_create_delivery_note', {
     title: 'Create Delivery Note',
-    description: 'Create a new delivery note in Lexware.',
+    description: 'Create a new delivery note in Lexware. Set finalize=true to finalize at creation; false or omitted creates a draft.',
     inputSchema: z.object({
       body: z.record(z.string(), z.unknown()).describe(
         'Delivery note JSON body. Key fields: voucherDate, address (object with contactId or manual fields), lineItems (array with name, quantity, unitPrice, etc.), totalPrice (object), taxConditions (object). See Lexware API docs for full schema.'
+      ),
+      finalize: z.boolean().optional().describe(
+        'When true, finalize the delivery note at creation via ?finalize=true. When false or omitted, create as draft.'
       ),
     }),
     annotations: {
@@ -22,7 +25,8 @@ export function registerDeliveryNoteTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    return lexwareRequest('POST', '/delivery-notes', params.body);
+    const query = params.finalize === true ? { finalize: true } : undefined;
+    return lexwareRequest('POST', '/delivery-notes', params.body, query);
   }));
 
   server.registerTool('lexware_get_delivery_note', {

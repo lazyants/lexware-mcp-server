@@ -9,10 +9,13 @@ import { downloadFileResult } from './_download.js';
 export function registerOrderConfirmationTools(server: McpServer): void {
   server.registerTool('lexware_create_order_confirmation', {
     title: 'Create Order Confirmation',
-    description: 'Create a new order confirmation in Lexware.',
+    description: 'Create a new order confirmation in Lexware. Set finalize=true to finalize at creation; false or omitted creates a draft.',
     inputSchema: z.object({
       body: z.record(z.string(), z.unknown()).describe(
         'Order confirmation JSON body. Key fields: voucherDate, address (object with contactId or manual fields), lineItems (array with name, quantity, unitPrice, etc.), totalPrice (object), taxConditions (object). See Lexware API docs for full schema.'
+      ),
+      finalize: z.boolean().optional().describe(
+        'When true, finalize the order confirmation at creation via ?finalize=true. When false or omitted, create as draft.'
       ),
     }),
     annotations: {
@@ -22,7 +25,8 @@ export function registerOrderConfirmationTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    return lexwareRequest('POST', '/order-confirmations', params.body);
+    const query = params.finalize === true ? { finalize: true } : undefined;
+    return lexwareRequest('POST', '/order-confirmations', params.body, query);
   }));
 
   server.registerTool('lexware_get_order_confirmation', {

@@ -47,6 +47,7 @@ describe('quotations tool registry', () => {
         'POST',
         '/quotations',
         body,
+        undefined,
       );
     });
   });
