@@ -44,6 +44,7 @@ describe('order-confirmations tool registry', () => {
         'POST',
         '/order-confirmations',
         body,
+        undefined,
       );
     });
   });
