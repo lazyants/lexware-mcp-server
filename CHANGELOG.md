@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `format: "xml"` on `lexware_download_file` for available e-invoice XML originals. PDF remains
   the default; XML embedded in a PDF cannot be retrieved separately (#70).
 
+### Changed
+
+- Keep `lexware_deeplink_contact`'s `url` as a permanent alias for `deeplink` and
+  document both supported output keys (#78).
+
 ### Fixed
 
 - Refresh dependency security floors for Axios, Hono, fast-uri, ip-address,

@@ -52,12 +52,11 @@ export function registerContactTools(server: McpServer): void {
 
   server.registerTool('lexware_deeplink_contact', {
     title: 'Deeplink Contact',
-    description: 'Get a direct URL to view a contact in the Lexware web app.',
+    description: 'Get a direct URL to view a contact in the Lexware web app. Returns deeplink and its permanent alias url with the same value.',
     inputSchema: z.object({ id: UuidSchema.describe('Contact ID') }),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, handleToolRequest(async (params: { id: string }) => {
-    // `deeplink` is the uniform key across all deeplink tools. `url` is retained as a
-    // deprecated backward-compat alias (this tool's original key); remove in the next major.
+    // `url`, this tool's original output key, is a permanent alias for `deeplink`.
     const deeplink = `${LEXWARE_APP_BASE}/permalink/contacts/view/${params.id}`;
     return { deeplink, url: deeplink };
   }));
