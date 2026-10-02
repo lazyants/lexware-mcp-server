@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Keep `lexware_deeplink_contact`'s `url` as a permanent alias for `deeplink` and
+  document both supported output keys (#78).
+
 ### Fixed
 
 - Refresh dependency security floors for Axios, Hono, fast-uri, ip-address,

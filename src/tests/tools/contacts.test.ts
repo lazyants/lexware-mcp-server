@@ -155,7 +155,7 @@ describe('contacts tool registry', () => {
       expect(result.structuredContent.deeplink).toBe(
         'https://app.lexware.de/permalink/contacts/view/c-3',
       );
-      // `url` is retained as a deprecated backward-compat alias for `deeplink`.
+      // `url` is a permanent alias for `deeplink`.
       expect(result.structuredContent.url).toBe(
         'https://app.lexware.de/permalink/contacts/view/c-3',
       );
