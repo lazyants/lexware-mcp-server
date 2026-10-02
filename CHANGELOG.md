@@ -10,10 +10,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Creation-time `finalize` on the standalone quotation, credit-note, order-confirmation and
+  delivery-note tools. Only explicit `true` forwards `?finalize=true`; false or omitted creates
+  a draft (#70).
+- `updatedDateFrom`, `updatedDateTo` and `sort` on `lexware_list_voucherlist`, including
+  documentation of the `transferred` and `sepadebit` status filters (#70).
+- `format: "xml"` on `lexware_download_file` for available e-invoice XML originals. PDF remains
+  the default; XML embedded in a PDF cannot be retrieved separately (#70).
+
 ### Changed
 
 - Keep `lexware_deeplink_contact`'s `url` as a permanent alias for `deeplink` and
   document both supported output keys (#78).
+- Document the existing `unchecked` to `open` voucher-update constraint and required
+  optimistic-locking `version` in MCP discovery and the bundled reference (#120).
+- Expose Lexware's supported sales-voucher and article-description formatting, with
+  field examples and the unsupported article-title constraint; preserve caller text (#121).
+- Explain external webhook handlers, HTTP 200/204 acknowledgement within 5 seconds,
+  asynchronous queue processing, and rate-limited API calls in MCP and README guidance (#122).
 
 ### Fixed
 

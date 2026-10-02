@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { lexwareRequest } from '../services/lexware.js';
 import { handleToolRequest } from '../helpers.js';
 import { UuidSchema, PaginationParams } from '../schemas/common.js';
+import { ARTICLE_TEXT_FORMATTING_DESCRIPTION } from './_text-formatting.js';
 
 export function registerArticleTools(server: McpServer): void {
   server.registerTool('lexware_list_articles', {
@@ -26,10 +27,10 @@ export function registerArticleTools(server: McpServer): void {
 
   server.registerTool('lexware_create_article', {
     title: 'Create Article',
-    description: 'Create a new article.',
+    description: 'Create a new article. ' + ARTICLE_TEXT_FORMATTING_DESCRIPTION,
     inputSchema: z.object({
       body: z.record(z.string(), z.unknown()).describe(
-        'Article JSON. Key fields: title (string), type ("PRODUCT"|"SERVICE"), unitName, unitPrice (object with currency, netAmount, grossAmount, taxRatePercentage), description'
+        'Article JSON with title, type ("PRODUCT"|"SERVICE"), unitName, price (leadingPrice, netPrice or grossPrice, taxRate), and description. ' + ARTICLE_TEXT_FORMATTING_DESCRIPTION
       ),
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
@@ -37,11 +38,11 @@ export function registerArticleTools(server: McpServer): void {
 
   server.registerTool('lexware_update_article', {
     title: 'Update Article',
-    description: 'Update an existing article. The body must include the version field for optimistic locking.',
+    description: 'Update an article with the current version field for optimistic locking. ' + ARTICLE_TEXT_FORMATTING_DESCRIPTION,
     inputSchema: z.object({
       id: UuidSchema.describe('Article ID'),
       body: z.record(z.string(), z.unknown()).describe(
-        'Article JSON with version field included for optimistic locking. Key fields: title, type, unitName, unitPrice, description, version (required)'
+        'Article JSON with title, type, unitName, price, description, and the current version required for optimistic locking. ' + ARTICLE_TEXT_FORMATTING_DESCRIPTION
       ),
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },

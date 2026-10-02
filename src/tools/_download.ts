@@ -10,9 +10,9 @@ export interface DownloadFileResult {
  * Shared body for the 8 `lexware_download_*` tools: fetches the file, applies
  * the fallback name, and base64-encodes the payload.
  *
- * `fallbackName` is a literal for the 5 PDF-only tools, or a function of the
- * resolved `contentType` for the 3 XRechnung-capable tools (which need
- * `downloadFallbackName(resource, contentType)`). The fallback uses `||`, not
+ * `fallbackName` is a literal for PDF-only tools, or a function of the
+ * resolved `contentType` for XML-capable voucher and generic file downloads.
+ * The fallback uses `||`, not
  * `??` — an empty-string `fileName` from the API must still fall through, not
  * just a missing one.
  *

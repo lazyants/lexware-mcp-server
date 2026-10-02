@@ -5,17 +5,17 @@ import { handleToolRequest } from '../helpers.js';
 import { UuidSchema, DownloadFormat, downloadAccept, downloadFallbackName } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
 import { downloadFileResult } from './_download.js';
+import { SALES_TEXT_FORMATTING_DESCRIPTION } from './_text-formatting.js';
 
 export function registerInvoiceTools(server: McpServer): void {
   server.registerTool('lexware_create_invoice', {
     title: 'Create Invoice',
     description:
-      'Create a new invoice in Lexware. Set finalize=true to immediately finalize (status "open"); ' +
-      'omit or false to create as draft. The Lexware API does not support finalizing an existing draft — ' +
-      'this is the only documented way to obtain a finalized invoice.',
+      'Create a new invoice in Lexware; finalize=true creates status "open", false or omitted creates a draft, and the API cannot finalize an existing draft. ' +
+      SALES_TEXT_FORMATTING_DESCRIPTION,
     inputSchema: z.object({
       body: z.record(z.string(), z.unknown()).describe(
-        'Invoice JSON body. Key fields: voucherDate, address (object with contactId or manual fields), lineItems (array with name, quantity, unitPrice, etc.), totalPrice (object), taxConditions (object). See Lexware API docs for full schema.'
+        'Invoice JSON body with voucherDate, address (contactId or manual fields), lineItems (name, quantity, unitPrice), totalPrice, and taxConditions. ' + SALES_TEXT_FORMATTING_DESCRIPTION
       ),
       finalize: z.boolean().optional().describe(
         'When true, creates the invoice in finalized "open" status. When false or omitted, creates as draft. Maps to the documented ?finalize=true query parameter.'
@@ -88,16 +88,14 @@ export function registerInvoiceTools(server: McpServer): void {
   server.registerTool('lexware_pursue_invoice', {
     title: 'Pursue to an Invoice',
     description:
-      'Create a new invoice as a follow-up to a preceding sales voucher (quotation, order confirmation, or delivery note). ' +
-      'Maps to the documented `POST /invoices?precedingSalesVoucherId={id}[&finalize=true]` endpoint. ' +
-      'Set finalize=true to immediately finalize the new invoice (status "open"); omit or false to create as draft.',
+      'Create a new invoice from a quotation, order confirmation, or delivery note via `POST /invoices?precedingSalesVoucherId={id}[&finalize=true]`; finalize=true creates status "open", false or omitted creates a draft. ' +
+      SALES_TEXT_FORMATTING_DESCRIPTION,
     inputSchema: z.object({
       precedingSalesVoucherId: UuidSchema.describe(
         'UUID of the preceding sales voucher (quotation, order confirmation, or delivery note) that this invoice is pursued from.'
       ),
       body: z.record(z.string(), z.unknown()).describe(
-        'Invoice JSON body. Same shape as lexware_create_invoice. Required fields: voucherDate, address, lineItems, totalPrice, taxConditions. ' +
-        'See Lexware API docs for full schema.'
+        'Invoice JSON body with required voucherDate, address, lineItems, totalPrice, and taxConditions. ' + SALES_TEXT_FORMATTING_DESCRIPTION
       ),
       finalize: z.boolean().optional().describe(
         'When true, creates the invoice in finalized "open" status. When false or omitted, creates as draft. ' +

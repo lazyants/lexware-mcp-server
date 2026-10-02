@@ -259,6 +259,10 @@ With an environment variable instead:
 
 `lexware_create_delivery_note`, `lexware_get_delivery_note`, `lexware_download_delivery_note_file`, `lexware_pursue_delivery_note`, `lexware_deeplink_delivery_note`
 
+The standalone invoice, credit-note, quotation, order-confirmation and delivery-note create tools
+accept `finalize: true` to finalize at creation. Omit it or set `false` to create a draft; only
+explicit `true` sends the API's `?finalize=true` query parameter.
+
 ### Down Payment Invoices (3 tools) — sales
 
 `lexware_get_down_payment_invoice`, `lexware_download_down_payment_invoice_file`, `lexware_deeplink_down_payment_invoice`
@@ -270,6 +274,11 @@ With an environment variable instead:
 ### Voucherlist (1 tool) — sales, bookkeeping
 
 `lexware_list_voucherlist`
+
+For incremental sync, `updatedDateFrom` and `updatedDateTo` filter the last modification date
+(`yyyy-MM-dd`, full days in CET/CEST). `sort` accepts `voucherDate`, `voucherNumber`, `createdDate`
+or `updatedDate` followed by `ASC` or `DESC`, for example `updatedDate,DESC`. Status filters include
+`transferred` and `sepadebit`; the transient `overdue` status cannot be combined with other statuses.
 
 By default this is a single-page passthrough of the API response. Two additions are opt-in:
 
@@ -337,9 +346,22 @@ returns `{ voucherId, status: "processing", message }`. Other failures are repor
 
 `lexware_create_event_subscription`, `lexware_list_event_subscriptions`, `lexware_get_event_subscription`, `lexware_delete_event_subscription`, `lexware_verify_webhook_signature`
 
+Your application hosts the callback handler; this MCP server manages subscriptions and verifies
+signatures but does not host a receiver. Acknowledge callbacks promptly with HTTP 200 or 204
+within Lexware's 5-second (5000 ms) timeout, enqueue the received payload, and process it
+asynchronously.
+
+Use the queue to absorb event bursts and apply controlled processing retries/backoff independently
+of Lexware's delivery retries. Throttle outgoing API calls to respect the API rate limits. See
+[Lexware's event-subscription best practices](https://developers.lexware.io/docs/#event-subscriptions-endpoint-purpose-best-practices).
+
 ### Files (4 tools) — system
 
 `lexware_upload_file`, `lexware_download_file`, `lexware_get_file_status`, `lexware_deeplink_file`
+
+`lexware_download_file` accepts `format: "pdf"` (default) or `format: "xml"` to retrieve an
+available e-invoice XML original. XML embedded in a PDF cannot be retrieved separately; Lexware
+returns 404 when the requested XML is unavailable. Downloads return the bytes as `contentBase64`.
 
 `lexware_get_file_status` calls `GET /files/{id}/status`. The bare `GET /files/{id}` is the binary
 download route — with `Accept: application/json` it still answers `200` with the file body

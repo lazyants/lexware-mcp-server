@@ -5,6 +5,7 @@ import { handleToolRequest } from '../helpers.js';
 import { UuidSchema } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
 import { downloadFileResult } from './_download.js';
+import { SALES_TEXT_FORMATTING_DESCRIPTION } from './_text-formatting.js';
 
 export function registerDunningTools(server: McpServer): void {
   // NOTE: lexware_create_dunning was removed because dunnings are a chain-terminal
@@ -15,15 +16,14 @@ export function registerDunningTools(server: McpServer): void {
   server.registerTool('lexware_pursue_dunning', {
     title: 'Pursue to a Dunning',
     description:
-      'Create a new dunning as a follow-up to a preceding invoice via the documented ' +
-      '`POST /dunnings?precedingSalesVoucherId={id}` endpoint. ' +
-      'Dunnings are always created in draft mode and do not need to be finalized.',
+      'Create a new dunning from an invoice via `POST /dunnings?precedingSalesVoucherId={id}`; dunnings are always created as drafts and do not need finalization. ' +
+      SALES_TEXT_FORMATTING_DESCRIPTION,
     inputSchema: z.object({
       precedingSalesVoucherId: UuidSchema.describe(
         'UUID of the preceding invoice that this dunning is pursued from. Required by the Lexware API.'
       ),
       body: z.record(z.string(), z.unknown()).describe(
-        'Dunning JSON body. Key fields: voucherDate, address (object with contactId or manual fields), lineItems (array), totalPrice (object), taxConditions (object). See Lexware API docs for full schema.'
+        'Dunning JSON body with voucherDate, address (contactId or manual fields), lineItems, totalPrice, and taxConditions. ' + SALES_TEXT_FORMATTING_DESCRIPTION
       ),
     }),
     annotations: {

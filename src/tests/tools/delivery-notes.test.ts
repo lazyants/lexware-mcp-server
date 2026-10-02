@@ -44,6 +44,7 @@ describe('delivery-notes tool registry', () => {
         'POST',
         '/delivery-notes',
         body,
+        undefined,
       );
     });
   });

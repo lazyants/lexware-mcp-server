@@ -5,14 +5,18 @@ import { handleToolRequest } from '../helpers.js';
 import { UuidSchema } from '../schemas/common.js';
 import { LEXWARE_APP_BASE } from '../constants.js';
 import { downloadFileResult } from './_download.js';
+import { SALES_TEXT_FORMATTING_DESCRIPTION } from './_text-formatting.js';
 
 export function registerDeliveryNoteTools(server: McpServer): void {
   server.registerTool('lexware_create_delivery_note', {
     title: 'Create Delivery Note',
-    description: 'Create a new delivery note in Lexware.',
+    description: 'Create a new delivery note in Lexware; finalize=true finalizes at creation, false or omitted creates a draft. ' + SALES_TEXT_FORMATTING_DESCRIPTION,
     inputSchema: z.object({
       body: z.record(z.string(), z.unknown()).describe(
-        'Delivery note JSON body. Key fields: voucherDate, address (object with contactId or manual fields), lineItems (array with name, quantity, unitPrice, etc.), totalPrice (object), taxConditions (object). See Lexware API docs for full schema.'
+        'Delivery note JSON body with voucherDate, address (contactId or manual fields), lineItems (name, quantity, unitPrice), totalPrice, and taxConditions. ' + SALES_TEXT_FORMATTING_DESCRIPTION
+      ),
+      finalize: z.boolean().optional().describe(
+        'When true, finalize the delivery note at creation via ?finalize=true. When false or omitted, create as draft.'
       ),
     }),
     annotations: {
@@ -22,7 +26,8 @@ export function registerDeliveryNoteTools(server: McpServer): void {
       openWorldHint: true,
     },
   }, handleToolRequest(async (params) => {
-    return lexwareRequest('POST', '/delivery-notes', params.body);
+    const query = params.finalize === true ? { finalize: true } : undefined;
+    return lexwareRequest('POST', '/delivery-notes', params.body, query);
   }));
 
   server.registerTool('lexware_get_delivery_note', {
@@ -60,14 +65,14 @@ export function registerDeliveryNoteTools(server: McpServer): void {
   server.registerTool('lexware_pursue_delivery_note', {
     title: 'Pursue to a Delivery Note',
     description:
-      'Create a new delivery note as a follow-up to a preceding quotation or order confirmation. ' +
-      'Maps to the documented `POST /delivery-notes?precedingSalesVoucherId={id}` endpoint.',
+      'Create a new delivery note from a quotation or order confirmation via `POST /delivery-notes?precedingSalesVoucherId={id}`. ' +
+      SALES_TEXT_FORMATTING_DESCRIPTION,
     inputSchema: z.object({
       precedingSalesVoucherId: UuidSchema.describe(
         'UUID of the preceding sales voucher (quotation or order confirmation) that this delivery note is pursued from.'
       ),
       body: z.record(z.string(), z.unknown()).describe(
-        'Delivery note JSON body. Same shape as lexware_create_delivery_note. See Lexware API docs for full schema.'
+        'Delivery note JSON body with voucherDate, address, lineItems, totalPrice, and taxConditions. ' + SALES_TEXT_FORMATTING_DESCRIPTION
       ),
     }),
     annotations: {
