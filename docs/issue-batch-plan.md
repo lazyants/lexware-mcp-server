@@ -1,8 +1,9 @@
 # Open-issue implementation plan — 2026-10-02
 
 This batch covers every open issue in `lazyants/lexware-mcp-server` when work
-started. Each implementation ships through a focused pull request. The existing
-dependency PR #119 is included because its failing audit blocks the batch.
+started. Each implementation ships through a focused pull request. The initial
+dependency PR #119 shared the failing audit; after prerequisite #125 merged,
+Dependabot closed #119 and replaced it with the remaining updates in #128.
 
 | Scope | Implementation and acceptance evidence |
 | --- | --- |
