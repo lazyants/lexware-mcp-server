@@ -85,4 +85,3 @@ describe('version check publishing gate', () => {
     expect(result.stdout).not.toContain('NPM_LOOKUP');
   });
 });
-
