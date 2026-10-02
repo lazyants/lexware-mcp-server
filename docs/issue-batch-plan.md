@@ -5,14 +5,14 @@ started. Each implementation ships through a focused pull request. The initial
 dependency PR #119 shared the failing audit; after prerequisite #125 merged,
 Dependabot closed #119 and replaced it with the remaining updates in #128.
 
-| Scope | Implementation and acceptance evidence |
-| --- | --- |
-| Audit prerequisite | Refresh affected dependency floors and the lockfile; require production audit, lint, version sync, build and tests before merging. |
-| #70 | Add creation-time `finalize` to four sales tools, updated-date filters and sorting to voucherlist, and XML generic file downloads. Verify query/header forwarding, defaults, pagination and MCP discovery. |
-| #78 | Keep the contact `url` output permanently alongside `deeplink`; document the decision and retain the existing output assertions. |
-| #120–#122 | Publish unchecked-voucher update restrictions, supported text formatting, and external webhook acknowledgement/queue guidance through MCP descriptions/resources and README. Verify discovery and unchanged payload forwarding. |
-| #99 | Enable grouped security updates after the configuration PR merges; verify the repository setting with the GitHub API. Retain the Node 20 type-package cap and unsupported TypeScript-major exclusion, and document the security fixes they can suppress. |
-| #95 | Keep parked until a published `typescript-eslint` peer range admits TypeScript 7. Registry check on 2026-10-02: latest `typescript-eslint` 8.71.0 requires `>=4.8.4 <6.1.0`; TypeScript latest is 7.0.2. No compatible upgrade exists yet. |
+| Scope | Implementation and acceptance evidence | Pull request |
+| --- | --- | --- |
+| Audit prerequisite | Refresh affected dependency floors and the lockfile; require production audit, lint, version sync, build and tests before merging. | [#125](https://github.com/lazyants/lexware-mcp-server/pull/125), [#128](https://github.com/lazyants/lexware-mcp-server/pull/128) |
+| #70 | Add creation-time `finalize` to four sales tools, updated-date filters and sorting to voucherlist, and XML generic file downloads. Verify query/header forwarding, defaults, pagination and MCP discovery. | [#126](https://github.com/lazyants/lexware-mcp-server/pull/126) |
+| #78 | Keep the contact `url` output permanently alongside `deeplink`; document the decision and retain the existing output assertions. | [#123](https://github.com/lazyants/lexware-mcp-server/pull/123) |
+| #120–#122 | Publish unchecked-voucher update restrictions, supported text formatting, and external webhook acknowledgement/queue guidance through MCP descriptions/resources and README. Verify discovery and unchanged payload forwarding. | [#124](https://github.com/lazyants/lexware-mcp-server/pull/124) |
+| #99 | Enable grouped security updates after the configuration PR merges; verify the repository setting with the GitHub API. Retain the Node 20 type-package cap and unsupported TypeScript-major exclusion, and document the security fixes they can suppress. | [#127](https://github.com/lazyants/lexware-mcp-server/pull/127) |
+| #95 | Keep parked until a published `typescript-eslint` peer range admits TypeScript 7. Registry check on 2026-10-02: latest `typescript-eslint` 8.71.0 and canary 8.71.1-alpha.5 require `>=4.8.4 <6.1.0`; TypeScript latest is 7.0.2. No compatible upgrade exists yet. | [Upstream condition](https://github.com/lazyants/lexware-mcp-server/issues/95) |
 
 For each changed tree, perform simplification, adversarial and security reviews
 in that order, rerunning after reviewer changes. Require current-head Node 20
