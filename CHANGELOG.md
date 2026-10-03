@@ -43,6 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document optional keyring and environment-token authentication in the MCP
   Registry package metadata, and reject already-published npm versions in the
   prepublish check (#131).
+- Wait up to 10 minutes for the npm tarball to become available before submitting
+  to the MCP Registry, preventing propagation delays from leaving the registries
+  out of sync (#118).
 
 ### Maintenance
 
