@@ -38,10 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refresh dependency security floors for Axios, Hono, fast-uri, ip-address,
   brace-expansion and Vitest, and resolve patched PostCSS and nanoid versions
   in the lockfile so the required production audit can pass again.
-- Exclude test files from published build output and correct the Hono override
+- Clean build output and exclude test files and source maps from published packages; correct the Hono override
   floor to a published patched version (#131).
 - Document optional keyring and environment-token authentication in the MCP
-  Registry package metadata, and validate the stdio transport before publishing (#131).
+  Registry package metadata, and reject already-published npm versions in the
+  prepublish check (#131).
 
 ### Maintenance
 
