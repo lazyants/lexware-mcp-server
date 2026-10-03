@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.3.0] — 2026-10-03
+
 ### Added
 
 - Creation-time `finalize` on the standalone quotation, credit-note, order-confirmation and
@@ -36,6 +38,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refresh dependency security floors for Axios, Hono, fast-uri, ip-address,
   brace-expansion and Vitest, and resolve patched PostCSS and nanoid versions
   in the lockfile so the required production audit can pass again.
+- Exclude test files from published build output and correct the Hono override
+  floor to a published patched version (#131).
+- Document optional keyring and environment-token authentication in the MCP
+  Registry package metadata, and validate the stdio transport before publishing (#131).
+
+### Maintenance
+
+- Pin GitHub Actions to verified commits and update the pinned MCP Registry
+  publisher across the release workflow (#132).
 
 ## [5.2.0] — 2026-08-20
 
@@ -581,6 +592,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[5.3.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.3.0
 [5.2.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.2.0
 [5.1.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.1.0
 [5.0.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.0.0
