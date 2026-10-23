@@ -21,7 +21,7 @@ runs [`scripts/check-release-drift.mjs`](../scripts/check-release-drift.mjs) on 
   This is the expected state between merging the bump and publishing the GitHub Release. The job
   stays green, so a green guard with this warning means "prepared, not published".
 
-## Maintainer flow
+## Release steps
 
 Releases ship via the GitHub Release event. Maintainer flow:
 
