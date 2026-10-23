@@ -10,6 +10,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.3.2] — 2026-10-23
+
+### Fixed
+
+- Ship this project's own `README.md` and `LICENSE` (FSL-1.1-MIT) in the npm
+  package. The 5.3.1 package on npm contains the README and license of the
+  `mcp-publisher` release tool instead: the publish workflow unpacked the
+  tool's archive into the checkout just before `npm publish`. The workflow
+  now unpacks only the tool binary, in a temporary directory, and refuses to
+  publish if any tracked file changed after checkout.
+
+No code or dependency changes: 5.3.2 ships the 5.3.1 changes below unchanged.
+
 ## [5.3.1] — 2026-10-23
 
 ### Changed
@@ -625,6 +638,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[5.3.2]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.3.2
 [5.3.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.3.1
 [5.3.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.3.0
 [5.2.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.2.0
