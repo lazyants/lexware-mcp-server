@@ -21,8 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- Bumped transitive dependencies in the lockfile to clear production
-  advisories: `@modelcontextprotocol/sdk` 1.31.0 → 1.32.1
+- Bump locked production dependency versions to clear advisories:
+  `@modelcontextprotocol/sdk` 1.31.0 → 1.32.1
   (GHSA-22jm-h49p-29qw, GHSA-46jr-4wx8-v453, GHSA-6prh-2h8m-c8cw,
   GHSA-rvq5-wwqv-78pq), `follow-redirects` 1.16.0 → 1.16.1
   (GHSA-q3jh-wrc6-jgq8, GHSA-8r9p-f939-6h3c), `ip-address` 10.7.3 → 10.7.4
