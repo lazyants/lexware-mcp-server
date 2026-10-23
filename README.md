@@ -1,6 +1,6 @@
 # lexware-mcp-server
 
-[![AgentHub 已收录：lexware](https://myagenthub.cn/badge/io.github.lazyants/lexware)](https://myagenthub.cn/p/io.github.lazyants/lexware)
+[![Listed on AgentHub: lexware](https://myagenthub.cn/badge/io.github.lazyants/lexware?lang=en)](https://myagenthub.cn/en/p/io.github.lazyants/lexware)
 [![Tests](https://github.com/lazyants/lexware-mcp-server/actions/workflows/test.yml/badge.svg)](https://github.com/lazyants/lexware-mcp-server/actions/workflows/test.yml)
 
 MCP server for the [Lexware Office API](https://developers.lexware.io/docs/). Manage invoices, contacts, articles, vouchers, and more through the Model Context Protocol.
