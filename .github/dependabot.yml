@@ -42,6 +42,16 @@ updates:
       # Minor and patch updates are unaffected either way. Revisit via #95.
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
+      # Vitest 5 requires Node `^22.12.0 || ^24.0.0 || >=26.0.0` and declares an
+      # `@types/node` peer of `^22.0.0 || >=24.0.0` (5.0.3 through 5.0.5,
+      # checked 2026-10-23). This package supports Node 20 and caps
+      # `@types/node` at ^20, so a Vitest 5 bump fails `npm ci` with ERESOLVE
+      # (#137). Stay on Vitest 4 until the Node 20 floor is raised, then drop
+      # this rule. Like the rules above, it also suppresses security-update PRs
+      # that need a Vitest major; review such advisories manually. Vitest is a
+      # devDependency that runs only in the test step.
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
