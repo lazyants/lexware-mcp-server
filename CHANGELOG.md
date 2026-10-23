@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (was `^1.3.0`). Same platform binaries; the environment-token fallback is
   unchanged (#130).
 - Add the AgentHub listing badge to the README (#135).
+- Shorten the README to a quick start. Keyring and client setup, API usage
+  notes and the release procedure move to `docs/configuration.md`,
+  `docs/usage.md` and `docs/releasing.md`; Claude Code setup now uses
+  `claude mcp add` or `.mcp.json` instead of `~/.claude/settings.json`.
 
 ### Security
 

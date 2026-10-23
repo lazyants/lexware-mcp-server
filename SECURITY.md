@@ -54,8 +54,8 @@ We aim to acknowledge reports within 3 business days.
   `services/lexware.ts` axios client, the file-upload pipeline, the
   webhook signature verifier.
 - The published npm artifact (`dist/`).
-- Sample configurations in `README.md` that could mislead users into an
-  insecure setup.
+- Sample configurations in `README.md` and `docs/configuration.md` that
+  could mislead users into an insecure setup.
 
 ## What is out of scope
 

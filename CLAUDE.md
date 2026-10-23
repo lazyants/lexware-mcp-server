@@ -7,7 +7,8 @@ write and review code here without another file. It is deliberately NOT the whol
   lint, `node scripts/check-versions.mjs`, `npm audit --audit-level=moderate --omit=dev`, build,
   tests, on the Node 20 + 22 matrix). Read that file — it is versioned here and is the source of
   truth, not a summary of it.
-- **Releasing** is in `README.md` § Releasing, including the guarded tagging sequence.
+- **Releasing** is in `docs/releasing.md`, including the guarded tagging sequence. `README.md`
+  § Releasing only links to it.
 - **Fleet-wide material** — the publishing playbook, the hygiene skill, the sibling servers — is in
   the fleet-root `CLAUDE.md` of the `lazy-ants/development/mcp/` checkout. A standalone clone does
   not have it; everything needed to work in *this* repo is here or in the two files named above.
