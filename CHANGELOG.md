@@ -10,6 +10,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.3.1] — 2026-10-23
+
+### Changed
+
+- The optional OS-keyring token lookup now uses `@napi-rs/keyring` `^2.1.2`
+  (was `^1.3.0`). Same platform binaries; the environment-token fallback is
+  unchanged (#130).
+- Add the AgentHub listing badge to the README (#135).
+
+### Security
+
+- Bump locked production dependency versions to clear advisories:
+  `@modelcontextprotocol/sdk` 1.31.0 → 1.32.1
+  (GHSA-22jm-h49p-29qw, GHSA-46jr-4wx8-v453, GHSA-6prh-2h8m-c8cw,
+  GHSA-rvq5-wwqv-78pq), `follow-redirects` 1.16.0 → 1.16.1
+  (GHSA-q3jh-wrc6-jgq8, GHSA-8r9p-f939-6h3c), `ip-address` 10.7.3 → 10.7.4
+  (GHSA-rxp7-6hxx-x8q5) and `proxy-addr` 2.0.7 → 2.0.8 (GHSA-jqcg-44mw-7w3h).
+  `package.json` ranges unchanged (#140, #141).
+
+### Maintenance
+
+- Update `actions/setup-node` to v7.1.0 in every workflow (#138), keep
+  Dependabot off Vitest majors while Node 20 is supported (#142), and bump
+  development tooling (#141, #143).
+
 ## [5.3.0] — 2026-10-03
 
 ### Added
@@ -596,6 +621,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[5.3.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.3.1
 [5.3.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.3.0
 [5.2.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.2.0
 [5.1.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.1.0
