@@ -53,6 +53,8 @@ We aim to acknowledge reports within 3 business days.
 - The MCP server itself: tool registration, request handling, the
   `services/lexware.ts` axios client, the file-upload pipeline, the
   webhook signature verifier.
+- Read-only mode (`LEXWARE_READ_ONLY`): any way a tool can change Lexware data
+  while it is on.
 - The published npm artifact (`dist/`).
 - Sample configurations in `README.md` and `docs/configuration.md` that
   could mislead users into an insecure setup.

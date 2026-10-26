@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Opt-in read-only mode. Set `LEXWARE_READ_ONLY=true` (or `1`) and the full server and every split
+  server refuse each tool that creates, changes, deletes, uploads or pursues data. Blocked tools
+  stay in the tool list, marked "Blocked"; a call to one returns an error and sends no request to
+  Lexware. Off by default; an unrecognized value stops the server from starting. See
+  `docs/configuration.md` § Read-only mode (#149).
+
 ## [5.3.3] — 2026-10-26
 
 ### Security
