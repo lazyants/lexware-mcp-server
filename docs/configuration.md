@@ -318,9 +318,8 @@ one; some are only hints.
    the token could write.
 4. **Keep reading and writing in separate server entries** if you need both. Give each entry its own
    keyring service name and store a token under each, as for
-   [multiple accounts](#multiple-lexware-accounts): a token with read-only permissions and read-only
-   mode for the entry you keep on, and a token that can write for an entry you turn on only when you
-   need it.
+   [multiple accounts](#multiple-lexware-accounts). Your everyday entry uses a token with read-only
+   permissions and read-only mode:
 
    ```json
    {
@@ -333,13 +332,19 @@ one; some are only hints.
            "LEXWARE_API_TOKEN": "",
            "LEXWARE_READ_ONLY": "true"
          }
-       },
-       "lexware-write": {
-         "command": "npx",
-         "args": ["-y", "@lazyants/lexware-mcp-server"],
-         "env": { "LEXWARE_KEYRING_SERVICE": "lexware-write", "LEXWARE_API_TOKEN": "" }
        }
      }
+   }
+   ```
+
+   Only when the client must make changes, add a second entry with a token that can write next to
+   `lexware-read`, and remove or disable it when you are done:
+
+   ```json
+   "lexware-write": {
+     "command": "npx",
+     "args": ["-y", "@lazyants/lexware-mcp-server"],
+     "env": { "LEXWARE_KEYRING_SERVICE": "lexware-write", "LEXWARE_API_TOKEN": "" }
    }
    ```
 
