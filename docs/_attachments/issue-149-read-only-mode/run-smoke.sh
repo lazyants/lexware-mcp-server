@@ -4,14 +4,17 @@
 # Record with: asciinema rec --headless --overwrite \
 #   --command "bash docs/_attachments/issue-149-read-only-mode/run-smoke.sh" \
 #   docs/_attachments/issue-149-read-only-mode/read-only-smoke.cast
-set -u
+set -eu
 export GIT_PAGER=cat PAGER=cat
 cd "$(dirname "$0")/../../.."
 
 echo "\$ git log --oneline -1"
 git log --oneline -1
 echo "\$ npm run build"
-npm run build --silent && echo "build ok"
+npm run build --silent
+echo "build ok"
 echo "\$ node docs/_attachments/issue-149-read-only-mode/drive-read-only-smoke.mjs dist/index.js"
-node docs/_attachments/issue-149-read-only-mode/drive-read-only-smoke.mjs dist/index.js
-echo "exit code: $?"
+status=0
+node docs/_attachments/issue-149-read-only-mode/drive-read-only-smoke.mjs dist/index.js || status=$?
+echo "exit code: $status"
+exit "$status"
