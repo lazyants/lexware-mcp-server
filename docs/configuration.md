@@ -264,9 +264,8 @@ When read-only mode is on:
   "Blocked:" and they take no parameters. A call to one returns an error such as
   `lexware_create_invoice is blocked: read-only mode is on (LEXWARE_READ_ONLY), so this server does not create, change, delete, upload or pursue Lexware data.`
   No request is sent to Lexware.
-- Tools that only read work as usual: the get, list, download and deeplink tools,
-  `lexware_get_file_status` and `lexware_verify_webhook_signature`. The `reference://lexware/api`
-  resource is still available.
+- Tools that only read work as usual: the get, list, download and deeplink tools and
+  `lexware_verify_webhook_signature`. The `reference://lexware/api` resource is still available.
 - Which tools may run is a fixed list in the server code, not a guess from tool names. A tool added
   in a later version is blocked in read-only mode until it is put on that list.
 

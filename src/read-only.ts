@@ -119,10 +119,10 @@ export function enforceReadOnly(server: McpServer): void {
     return register(
       name,
       { title: config.title, description: BLOCKED_DESCRIPTION, annotations: BLOCKED_ANNOTATIONS },
-      () => toolError(new Error(
+      () => toolError(
         `${name} is blocked: read-only mode is on (LEXWARE_READ_ONLY), so this server does not ` +
         'create, change, delete, upload or pursue Lexware data.'
-      )),
+      ),
     );
   }) as typeof server.registerTool;
 }

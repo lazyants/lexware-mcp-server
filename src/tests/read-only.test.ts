@@ -42,9 +42,15 @@ const BLOCKED_ANNOTATIONS = {
   idempotentHint: true,
   openWorldHint: false,
 };
-const blockedMessage = (name: string) =>
-  `Error: ${name} is blocked: read-only mode is on (LEXWARE_READ_ONLY), so this server does not ` +
-  'create, change, delete, upload or pursue Lexware data.';
+// Arguments a client might really send to a mutating tool; the stub must ignore them.
+const REALISTIC_ARGS = { id: UUID, body: { name: 'x' }, finalize: true, filePath: '/etc/hosts', version: 1 };
+
+function blockedMessage(name: string): string {
+  return (
+    `Error: ${name} is blocked: read-only mode is on (LEXWARE_READ_ONLY), so this server does not ` +
+    'create, change, delete, upload or pursue Lexware data.'
+  );
+}
 
 const TEST_PUBLIC_KEY = generateKeyPairSync('rsa', { modulusLength: 2048 })
   .publicKey.export({ type: 'spki', format: 'pem' })
@@ -78,12 +84,17 @@ async function connect(server: McpServer): Promise<Client> {
   return client;
 }
 
-/** Load an entry module fresh with LEXWARE_READ_ONLY set, and connect to the server it built. */
-async function startEntry(path: string, readOnly: string): Promise<Client> {
-  vi.stubEnv('LEXWARE_READ_ONLY', readOnly);
+/** Load an entry module fresh, with LEXWARE_READ_ONLY set to `readOnlyEnv`. */
+async function importEntry(path: string, readOnlyEnv: string): Promise<void> {
+  vi.stubEnv('LEXWARE_READ_ONLY', readOnlyEnv);
   vi.resetModules();
   captured.length = 0;
   await import(path);
+}
+
+/** Load an entry module fresh and connect to the server it built. */
+async function startEntry(path: string, readOnlyEnv: string): Promise<Client> {
+  await importEntry(path, readOnlyEnv);
   expect(captured).toHaveLength(1);
   return connect(captured[0]);
 }
@@ -96,7 +107,9 @@ async function callTool(client: Client, name: string, args?: Record<string, unkn
   return (await client.callTool({ name, arguments: args })) as ToolResult;
 }
 
-const resultText = (result: ToolResult) => result.content.map((part) => part.text ?? '').join('\n');
+function resultText(result: ToolResult): string {
+  return result.content.map((part) => part.text ?? '').join('\n');
+}
 
 interface JsonSchema {
   type?: string;
@@ -226,16 +239,13 @@ describe.each(ENTRY_POINTS)('entry point $command in read-only mode', ({ path })
 describe('blocked tools', () => {
   it('reject every call on every entry point without contacting Lexware', async () => {
     let blockedTools = 0;
-    let calls = 0;
     for (const { path } of ENTRY_POINTS) {
       const client = await startEntry(path, 'true');
       const blocked = (await listTools(client)).filter((tool) => !READ_ONLY_TOOL_NAMES.has(tool.name));
       blockedTools += blocked.length;
       for (const tool of blocked) {
-        const realistic = { id: UUID, body: { name: 'x' }, finalize: true, filePath: '/etc/hosts', version: 1 };
-        for (const args of [realistic, undefined]) {
+        for (const args of [REALISTIC_ARGS, undefined]) {
           const result = await callTool(client, tool.name, args);
-          calls++;
           expect(result.isError, tool.name).toBe(true);
           expect(resultText(result)).toBe(blockedMessage(tool.name));
         }
@@ -243,7 +253,6 @@ describe('blocked tools', () => {
     }
     // A loop that ran zero times would pass the assertions above.
     expect(blockedTools).toBeGreaterThan(0);
-    expect(calls).toBe(2 * blockedTools);
     expect(service.lexwareRequest).not.toHaveBeenCalled();
     expect(service.lexwareUpload).not.toHaveBeenCalled();
     expect(service.lexwareDownload).not.toHaveBeenCalled();
@@ -321,11 +330,7 @@ describe('LEXWARE_READ_ONLY wiring', () => {
   });
 
   it('stops an entry point from starting when the value is not recognized', async () => {
-    vi.stubEnv('LEXWARE_READ_ONLY', 'maybe');
-    vi.resetModules();
-    captured.length = 0;
-
-    await expect(import(FULL_SERVER)).rejects.toThrow('LEXWARE_READ_ONLY must be');
+    await expect(importEntry(FULL_SERVER, 'maybe')).rejects.toThrow('LEXWARE_READ_ONLY must be');
     expect(captured).toHaveLength(0);
   });
 });
