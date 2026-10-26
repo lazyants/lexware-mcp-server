@@ -71,12 +71,12 @@ We aim to acknowledge reports within 3 business days.
   do not treat them as security incidents.
 - Misconfiguration of the consumer's own environment (leaked
   `LEXWARE_API_TOKEN`, exposed webhook endpoints, etc.).
-- A change made by a tool that behaves as its description and annotations
-  state, while read-only mode is off, after your MCP client approved the call
+- With read-only mode off, a change made by a tool that works as its
+  description and annotations state, after your MCP client approved the call
   or was set to run it without approval. Approving tool calls is the client's
   job; see
   [Limit what the server can change](docs/configuration.md#limit-what-the-server-can-change).
-  Server defects and tools that misstate their effect stay in scope.
+  Server defects, including a tool that misstates its effect, stay in scope.
 
 ## Credential storage & native dependencies
 

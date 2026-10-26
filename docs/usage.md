@@ -10,8 +10,9 @@ conventions, text formatting rules and webhook guidance. For the API itself, see
 
 ## Before you write data
 
-- **Tools that create, update, delete, upload, or pursue change real business data** — invoices,
-  contacts, and accounting records in your Lexware account.
+- **Create, update, delete, upload, and pursue tools change real business data** — invoices,
+  contacts, and accounting records in your Lexware account. A pursue tool creates a follow-up
+  document.
 - To limit what the server can change — read-only mode, a token with read-only permissions and your
   MCP client's approval prompts — see [Limit what the server can change](configuration.md#limit-what-the-server-can-change).
 - Test against a sandbox or non-critical account before running write operations against
