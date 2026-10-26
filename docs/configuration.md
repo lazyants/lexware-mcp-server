@@ -1,7 +1,7 @@
 # Configuration
 
-How to give the server its Lexware Office API token and connect it to an MCP client. For the short
-version, see the [README](../README.md#quick-start).
+How to give the server its Lexware Office API token, connect it to an MCP client, and limit what it
+can change. For the short version, see the [README](../README.md#quick-start).
 
 ## How the server finds the API token
 
@@ -104,10 +104,13 @@ keyring on its first API request.
 
 ## Use an environment variable instead
 
-If you prefer not to use the keyring, set `LEXWARE_API_TOKEN` in your shell or MCP client config:
+If you prefer not to use the keyring, set `LEXWARE_API_TOKEN` in your shell or MCP client config.
+In bash or zsh, `read -rs` reads the token without showing it. The token is not part of the command,
+so it stays out of your shell history:
 
 ```bash
-export LEXWARE_API_TOKEN=your-token-here
+read -rs LEXWARE_API_TOKEN   # paste the token, then press Enter
+export LEXWARE_API_TOKEN
 ```
 
 A token in an MCP client config file is stored there in plain text. **Never commit your API token**
@@ -117,7 +120,7 @@ to version control.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `LEXWARE_API_TOKEN` | — | API token; used when the keyring has no entry for the configured service |
+| `LEXWARE_API_TOKEN` | — | API token; used when the keyring has no entry for the configured service or cannot be read. An empty value counts as no token |
 | `LEXWARE_KEYRING_SERVICE` | `lexware-mcp` | Keyring service name. Override when connecting to multiple Lexware accounts simultaneously — run one server instance per account, each with its own service name |
 | `LEXWARE_WEBHOOK_PUBLIC_KEY` | — | PEM public key for `lexware_verify_webhook_signature`; by default the key is fetched from Lexware and cached |
 | `LEXWARE_READ_ONLY` | off | `true` or `1` makes the server refuse every tool that changes Lexware data; see [Read-only mode](#read-only-mode) |
@@ -274,11 +277,108 @@ config runs as its own process, so set the variable in every entry that should b
 
 ### Limitations
 
-- It limits this server only. Your API key keeps all the permissions it was created with, and any
-  other program that uses the key can still change data.
+- It limits this server only. Your API token keeps all the permissions it was created with, and any
+  other program that uses the token can still change data.
 - Read tools still send business data and file contents to your MCP client and to the AI model
   behind it.
 - Unless `LEXWARE_WEBHOOK_PUBLIC_KEY` is set, `lexware_verify_webhook_signature` fetches Lexware's
   public key from `developers.lexware.io` once. This only reads; it changes nothing.
 - You cannot choose which tools to block. Read-only mode blocks every tool that changes data, and
   nothing else.
+
+## Limit what the server can change
+
+Unless read-only mode is on, this server carries out every valid tool call that its API token
+allows. That includes calls a model makes after reading untrusted text, such as an email or a
+document that contains instructions. Then the safeguards against unintended changes are your API
+token's permissions and your client's approval prompts.
+
+Several safeguards can apply when an AI client uses this server. This table shows who enforces each
+one; some are only hints.
+
+| Safeguard | Enforced by | What it does | What it does not do |
+| --- | --- | --- | --- |
+| API token permissions | Lexware | Lexware refuses requests the token is not allowed to make (HTTP 403). | A token's permissions cannot be changed after it is created; create a new token instead. |
+| [Read-only mode](#read-only-mode) | This server | With `LEXWARE_READ_ONLY=true`, refuses every tool that changes data; a blocked call sends no request to Lexware. | It is off by default and limits only this server; the token keeps its permissions for any other program. Read tools still send business data to the client and the AI model. |
+| Approval of tool calls | Your MCP client | The client asks you before a tool runs, if it is set up to ask. Some clients can also block single tools. | This server does not ask for approval and cannot tell whether you were asked. "Always allow", auto-approval, or a mode that skips approval prompts turns this safeguard off. |
+| Tool annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) | Nobody; they are hints | Tell the client which tools only read and which change data, so it can decide when to warn or ask. | They block nothing. The [MCP specification](https://modelcontextprotocol.io/specification/2025-11-25/server/tools) tells clients to treat annotations as untrusted unless they trust the server. |
+| [Split servers](#split-servers) | This server | Offer only the tools for one subject area, so the client sees fewer tools. | They are grouped by subject, not by read or write access. Most of them include tools that create, change, or delete data. |
+| Draft creation | Lexware, by default | Tools with a `finalize` option create a draft unless you pass `finalize: true`; only then does this server ask Lexware to finalize. | A draft is still a new record in your Lexware account. Other tools that change data — for example updates, deletes, uploads, and creating contacts or articles — have no draft step. |
+
+### A conservative setup
+
+1. **Create a dedicated API token with individual permissions.** Lexware calls the token an API key
+   (*API-Schlüssel*). In the [Lexware Office API settings](https://app.lexware.de/addons/public-api),
+   choose individual permissions instead of all permissions. Select only what the AI client needs,
+   and prefer read-only permissions — in Lexware's list, those that retrieve (*abrufen*) or download
+   (*herunterladen*). Add permissions that save or change data only for the areas where the client
+   must make changes. Lexware's guide
+   [Alles rund um Public API](https://help.lexware.de/de-form/articles/9263622-alles-rund-um-public-api)
+   (German) describes the options.
+2. **Store the token in the OS keyring**, as described in
+   [Store the token in the OS keyring](#store-the-token-in-the-os-keyring). Do not put it in a
+   committed file or on a command line.
+3. **Turn on read-only mode** in every server entry that only needs to read, as described in
+   [Read-only mode](#read-only-mode). It blocks the tools that change data in this server, even if
+   the token could write.
+4. **Keep reading and writing in separate server entries** if you need both. Give each entry its own
+   keyring service name and store a token under each, as for
+   [multiple accounts](#multiple-lexware-accounts). Your everyday entry uses a token with read-only
+   permissions and read-only mode:
+
+   ```json
+   {
+     "mcpServers": {
+       "lexware-read": {
+         "command": "npx",
+         "args": ["-y", "@lazyants/lexware-mcp-server"],
+         "env": {
+           "LEXWARE_KEYRING_SERVICE": "lexware-read",
+           "LEXWARE_API_TOKEN": "",
+           "LEXWARE_READ_ONLY": "true"
+         }
+       }
+     }
+   }
+   ```
+
+   Only when the client must make changes, add a second entry with a token that can write next to
+   `lexware-read`, and remove or disable it when you are done:
+
+   ```json
+   "lexware-write": {
+     "command": "npx",
+     "args": ["-y", "@lazyants/lexware-mcp-server"],
+     "env": { "LEXWARE_KEYRING_SERVICE": "lexware-write", "LEXWARE_API_TOKEN": "" }
+   }
+   ```
+
+   The empty `LEXWARE_API_TOKEN` matters. If an entry's keyring item is missing or cannot be read,
+   the server falls back to `LEXWARE_API_TOKEN`, and your client may pass on a value from its own
+   environment that can write. The empty value replaces it, so the server reports "No Lexware API
+   token found" instead of using a different token.
+
+   In the read entry, two safeguards apply: read-only mode refuses the tools that change data before
+   any request is sent, and Lexware would refuse those requests too, because the token lacks the
+   permission.
+5. **Require approval for tools that change data.** Do not "always allow" them. Do not use a client
+   mode that skips approval prompts while an entry can change data, that is, while its token can
+   write and read-only mode is off. Where your client supports it, block tools you never use. In
+   Claude Code, for example, this deny rule blocks one tool of a server named `lexware` (see the
+   [Claude Code permissions documentation](https://code.claude.com/docs/en/permissions#mcp)):
+
+   ```json
+   {
+     "permissions": {
+       "deny": ["mcp__lexware__lexware_delete_article"]
+     }
+   }
+   ```
+6. **Approve an upload only for a file you mean to send to Lexware.** The upload tools accept
+   `filePath` and send any file that the server process can read. A token with read-only permissions
+   does not stop the server from reading the file and sending it to Lexware; read-only mode does,
+   because it blocks the upload tools.
+7. **Use a split server to offer fewer tools.** Most split servers still include tools that change
+   data.
+8. **Test against a sandbox or non-critical account** before you let the client change production
+   data.

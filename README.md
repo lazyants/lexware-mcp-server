@@ -97,10 +97,16 @@ downloads, and webhooks.
 ## Security
 
 - **Use the OS keyring** and **never commit your API token** to version control.
-- Use **read-only** access when you only need to list/get resources.
-- **Create, update, and delete tools modify real business data** in your Lexware account.
+- **Create, update, delete, upload, and pursue tools change real business data** in your Lexware
+  account. A pursue tool creates a follow-up document.
 - Set `LEXWARE_READ_ONLY=true` to make the server refuse every tool that changes data. See
   [Read-only mode](https://github.com/lazyants/lexware-mcp-server/blob/main/docs/configuration.md#read-only-mode).
+- Without read-only mode, two things stop unintended changes: the permissions of your Lexware API
+  token, which Lexware enforces, and your MCP client's approval prompts. Tool annotations such as
+  `readOnlyHint` are hints for the client, not checks.
+- Split servers offer fewer tools, but most of them still include tools that change data. For a
+  conservative setup, see
+  [Limit what the server can change](https://github.com/lazyants/lexware-mcp-server/blob/main/docs/configuration.md#limit-what-the-server-can-change).
 - Requests that hit the rate limit (HTTP 429) are retried automatically with exponential backoff.
 
 To report a vulnerability, see [SECURITY.md](https://github.com/lazyants/lexware-mcp-server/blob/main/SECURITY.md).
@@ -109,7 +115,7 @@ To report a vulnerability, see [SECURITY.md](https://github.com/lazyants/lexware
 
 - [Configuration](https://github.com/lazyants/lexware-mcp-server/blob/main/docs/configuration.md) —
   keyring setup for macOS, Windows, and Linux; environment variables; Claude Code and Claude Desktop;
-  split servers and multiple accounts.
+  split servers and multiple accounts; limiting what the server can change.
 - [Usage notes](https://github.com/lazyants/lexware-mcp-server/blob/main/docs/usage.md) — API
   behavior and caveats.
 - [Releasing](https://github.com/lazyants/lexware-mcp-server/blob/main/docs/releasing.md) —

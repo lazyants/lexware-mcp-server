@@ -18,6 +18,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Lexware. Off by default; an unrecognized value stops the server from starting. See
   `docs/configuration.md` § Read-only mode (#149).
 
+### Changed
+
+- Document who enforces each safeguard against unintended changes, and a
+  conservative setup, in the new `docs/configuration.md` section "Limit what
+  the server can change". The README and usage notes link to it instead of the
+  earlier "use read-only access" advice, which did not say who enforces it
+  (#150).
+- SECURITY.md scope: a tool whose description or annotations misstate its
+  effect is in scope; a change made by a correctly described tool, with
+  read-only mode off and after your MCP client approved the call, is out of
+  scope (#150).
+- The environment-variable example reads the token with `read -rs`, so it no
+  longer lands in shell history (#150).
+- SECURITY.md lists 5.x as the supported major and 4.x security fixes through
+  2027-01-27, applying its existing six-month policy (#150).
+
 ## [5.3.3] — 2026-10-26
 
 ### Security

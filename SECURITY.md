@@ -14,13 +14,14 @@ this wrapper.
 
 | Version | Supported                          |
 | ------- | ---------------------------------- |
-| 4.x     | ✅                                 |
+| 5.x     | ✅                                 |
+| 4.x     | ✅ security fixes until 2027-01-27 |
 | 3.x     | ✅ security fixes until 2027-01-17 |
 
-The current major (`4.x`) is fully supported. When a new major is released, the
-previous major continues to receive security fixes for at least six months — so
-`3.x` is supported through 2027-01-17, six months after the 4.0.0 release. Majors
-older than the previous one are not supported.
+The current major (`5.x`) is fully supported. When a new major is released, the
+previous major continues to receive security fixes for at least six months.
+`3.x` keeps the six months promised when 4.0.0 was released. The table shows
+each end date; other majors are not supported.
 
 ## Reporting a vulnerability
 
@@ -58,6 +59,8 @@ We aim to acknowledge reports within 3 business days.
 - The published npm artifact (`dist/`).
 - Sample configurations in `README.md` and `docs/configuration.md` that
   could mislead users into an insecure setup.
+- A tool whose description or annotations misstate its effect — for example, a
+  tool marked `readOnlyHint: true` that changes data.
 
 ## What is out of scope
 
@@ -68,6 +71,12 @@ We aim to acknowledge reports within 3 business days.
   do not treat them as security incidents.
 - Misconfiguration of the consumer's own environment (leaked
   `LEXWARE_API_TOKEN`, exposed webhook endpoints, etc.).
+- With read-only mode off, a change made by a tool that works as its
+  description and annotations state, after your MCP client approved the call
+  or was set to run it without approval. Approving tool calls is the client's
+  job; see
+  [Limit what the server can change](docs/configuration.md#limit-what-the-server-can-change).
+  Server defects, including a tool that misstates its effect, stay in scope.
 
 ## Credential storage & native dependencies
 
@@ -81,8 +90,8 @@ Notes relevant to the supply-chain and credential surface:
 
 - **`@napi-rs/keyring` is a native module shipped as prebuilt platform binaries**
   (napi-rs, distributed as per-platform packages) — there is **no local
-  compile step / `node-gyp`** at install time. It is **pinned** in
-  `package.json` (`^1.3.0`); the resolved binaries are locked in
+  compile step / `node-gyp`** at install time. Its version range is declared
+  in `package.json`; the resolved binaries are locked in
   `package-lock.json` with integrity hashes.
 - **`@napi-rs/keyring` is listed under `optionalDependencies`, not
   `dependencies`, and loaded via a lazy `await import(...)`.** Be aware that

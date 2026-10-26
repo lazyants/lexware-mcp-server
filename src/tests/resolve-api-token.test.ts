@@ -42,6 +42,15 @@ describe('resolveApiToken (pure token-source selection)', () => {
     expect(message).not.toContain('lexware.io');
   });
 
+  it('treats an empty env value as no token', () => {
+    // docs/configuration.md tells users to set LEXWARE_API_TOKEN to "" on a
+    // keyring-backed entry so a missing keyring item cannot fall back to an
+    // inherited token that may have write permissions.
+    expect(() => resolveApiToken({ keyringValue: null, envValue: '' })).toThrow(
+      'No Lexware API token found',
+    );
+  });
+
   it('never echoes the runtime LEXWARE_KEYRING_SERVICE value (defends against a mis-pasted token)', () => {
     // The error names the env var and shows only the default service constant.
     // It must not interpolate the caller-supplied service value, which a user
