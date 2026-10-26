@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.3.3] — 2026-10-26
+
+### Security
+
+- Raise the `body-parser` override floor to `^2.4.0` and `fast-uri` to
+  `^3.1.9`, and refresh the lockfile for the production dependency advisories
+  addressed in #147.
+
 ## [5.3.2] — 2026-10-23
 
 ### Fixed
@@ -638,6 +646,7 @@ No code or dependency changes: 5.3.2 ships the 5.3.1 changes below unchanged.
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[5.3.3]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.3.3
 [5.3.2]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.3.2
 [5.3.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.3.1
 [5.3.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.3.0
