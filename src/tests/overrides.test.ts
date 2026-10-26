@@ -103,10 +103,11 @@ const PINS: Pin[] = [
     declaredIn: 'overrides',
   },
   {
-    // Stay on 3.x — ajv declares ^3.0.1; the host-normalization fix is 3.1.8.
+    // Stay on 3.x — ajv declares ^3.0.1; 3.1.8 fixed host normalization, and
+    // 3.1.9 the four follow-up GHSAs that extended the range past it.
     name: 'fast-uri',
-    floor: '3.1.8',
-    advisory: 'GHSA-hrr3-gc8f-f4qj host normalization',
+    floor: '3.1.9',
+    advisory: 'GHSA-hrr3-gc8f-f4qj, GHSA-w74x-v6f9-j3xg, GHSA-xhq7-xmqj-769h, GHSA-wjr9-j795-jxcr, GHSA-333x-w4r6-6crp',
     declaredIn: 'overrides',
   },
   {
@@ -142,8 +143,8 @@ const PINS: Pin[] = [
   },
   {
     name: 'body-parser',
-    floor: '2.3.0',
-    advisory: 'GHSA-v422-hmwv-36x6 DoS via invalid limit',
+    floor: '2.4.0',
+    advisory: 'GHSA-v422-hmwv-36x6 DoS via invalid limit, GHSA-27r3-jxmh-p828 DoS via trailing compressed bytes',
     declaredIn: 'overrides',
   },
   {

@@ -54,13 +54,13 @@
     "@napi-rs/keyring": "^2.1.2"
   },
   "overrides": {
-    "fast-uri": "^3.1.8",
+    "fast-uri": "^3.1.9",
     "brace-expansion": "^5.0.12",
     "hono": "^4.13.11",
     "ip-address": "^10.7.1",
     "qs": "^6.16.0",
     "@hono/node-server": "^2.0.10",
-    "body-parser": "^2.3.0",
+    "body-parser": "^2.4.0",
     "form-data": "^4.0.6"
   },
   "devDependencies": {
