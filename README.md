@@ -99,9 +99,11 @@ downloads, and webhooks.
 - **Use the OS keyring** and **never commit your API token** to version control.
 - **Tools that create, update, delete, upload, or pursue change real business data** in your
   Lexware account. A pursue tool creates a follow-up document.
-- This server has **no read-only mode**. Today the safeguards against unintended changes are the
-  permissions of your Lexware API token, enforced by Lexware, and the approval prompts of your MCP
-  client. Tool annotations such as `readOnlyHint` are hints for the client, not checks.
+- Set `LEXWARE_READ_ONLY=true` to make the server refuse every tool that changes data. See
+  [Read-only mode](https://github.com/lazyants/lexware-mcp-server/blob/main/docs/configuration.md#read-only-mode).
+- Without read-only mode, what stops unintended changes is the permissions of your Lexware API token,
+  enforced by Lexware, and the approval prompts of your MCP client. Tool annotations such as
+  `readOnlyHint` are hints for the client, not checks.
 - For a conservative setup, and what split servers do and do not limit, see
   [Limit what the server can change](https://github.com/lazyants/lexware-mcp-server/blob/main/docs/configuration.md#limit-what-the-server-can-change).
 - Requests that hit the rate limit (HTTP 429) are retried automatically with exponential backoff.

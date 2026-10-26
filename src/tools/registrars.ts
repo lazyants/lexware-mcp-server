@@ -19,6 +19,7 @@ import { registerPaymentTools } from './payments.js';
 import { registerEventSubscriptionTools } from './event-subscriptions.js';
 import { registerFileTools } from './files.js';
 import { registerRecurringTemplateTools } from './recurring-templates.js';
+import { enforceReadOnly, readOnlyModeFromEnv } from '../read-only.js';
 
 export type ToolRegistrar = (server: McpServer) => void;
 
@@ -88,6 +89,13 @@ export const allToolRegistrars: ToolRegistrar[] = [
   registerRecurringTemplateTools,
 ];
 
-export function registerTools(server: McpServer, registrars: ToolRegistrar[]): void {
+// Every entry point registers its tools through here, so this one check applies
+// read-only mode to the full server and to every split server.
+export function registerTools(
+  server: McpServer,
+  registrars: ToolRegistrar[],
+  readOnly = readOnlyModeFromEnv(),
+): void {
+  if (readOnly) enforceReadOnly(server);
   for (const register of registrars) register(server);
 }

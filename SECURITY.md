@@ -54,6 +54,8 @@ We aim to acknowledge reports within 3 business days.
 - The MCP server itself: tool registration, request handling, the
   `services/lexware.ts` axios client, the file-upload pipeline, the
   webhook signature verifier.
+- Read-only mode (`LEXWARE_READ_ONLY`): any way a tool can change Lexware data
+  while it is on.
 - The published npm artifact (`dist/`).
 - Sample configurations in `README.md` and `docs/configuration.md` that
   could mislead users into an insecure setup.
@@ -70,8 +72,9 @@ We aim to acknowledge reports within 3 business days.
 - Misconfiguration of the consumer's own environment (leaked
   `LEXWARE_API_TOKEN`, exposed webhook endpoints, etc.).
 - A change made by a tool that behaves as its description and annotations
-  state, after your MCP client approved the call or was set to run it
-  without approval. Approving tool calls is the client's job; see
+  state, while read-only mode is off, after your MCP client approved the call
+  or was set to run it without approval. Approving tool calls is the client's
+  job; see
   [Limit what the server can change](docs/configuration.md#limit-what-the-server-can-change).
   Server defects and tools that misstate their effect stay in scope.
 

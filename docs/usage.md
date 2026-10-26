@@ -12,8 +12,8 @@ conventions, text formatting rules and webhook guidance. For the API itself, see
 
 - **Tools that create, update, delete, upload, or pursue change real business data** — invoices,
   contacts, and accounting records in your Lexware account.
-- To limit what the server can change — a token with read-only permissions and your MCP client's
-  approval prompts — see [Limit what the server can change](configuration.md#limit-what-the-server-can-change).
+- To limit what the server can change — read-only mode, a token with read-only permissions and your
+  MCP client's approval prompts — see [Limit what the server can change](configuration.md#limit-what-the-server-can-change).
 - Test against a sandbox or non-critical account before running write operations against
   production data.
 - Rate limiting is handled automatically: requests retry with exponential backoff on 429, including

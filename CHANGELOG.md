@@ -10,14 +10,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Opt-in read-only mode. Set `LEXWARE_READ_ONLY=true` (or `1`) and the full server and every split
+  server refuse each tool that creates, changes, deletes, uploads or pursues data. Blocked tools
+  stay in the tool list, marked "Blocked"; a call to one returns an error and sends no request to
+  Lexware. Off by default; an unrecognized value stops the server from starting. See
+  `docs/configuration.md` § Read-only mode (#149).
+
 ### Changed
 
 - Document who enforces each safeguard against unintended changes — Lexware
-  API token permissions, MCP client approval, advisory tool annotations, split
-  servers and draft creation — and a conservative setup, in the new
-  `docs/configuration.md` section "Limit what the server can change". The
-  README, usage notes and SECURITY.md link to it, and no longer suggest that
-  read-only access is a server option (#150).
+  API token permissions, read-only mode, MCP client approval, advisory tool
+  annotations, split servers and draft creation — and a conservative setup, in
+  the new `docs/configuration.md` section "Limit what the server can change".
+  The README, usage notes and SECURITY.md link to it instead of the earlier
+  "use read-only access" advice, which did not say who enforces it (#150).
 - The environment-variable example reads the token with `read -rs`, so it no
   longer lands in shell history.
 - SECURITY.md lists 5.x as the supported major and 4.x security fixes through

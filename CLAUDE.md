@@ -65,6 +65,10 @@ write and review code here without another file. It is deliberately NOT the whol
   `lexware_pursue_quotation`.
 
 - **Conventions**:
+  - **Read-only mode** (`src/read-only.ts`): while `LEXWARE_READ_ONLY` is on, only tools listed in
+    `READ_ONLY_TOOL_NAMES` run; every other tool is blocked. Add a new read-only tool to that list
+    in the same commit — `read-only.test.ts` fails when the list and the `readOnlyHint` annotations
+    disagree.
   - Optimistic locking: PUT requests require a `version` field in the body.
   - IDs are UUIDs — use **`UuidSchema`** from `src/schemas/common.ts`. (There is no `UuidS`.)
   - Pagination: 0-indexed `page` + `size` (spread `PaginationParams`).
