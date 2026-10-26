@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Document who enforces each safeguard against unintended changes — Lexware
-  API key permissions, MCP client approval, advisory tool annotations, split
+  API token permissions, MCP client approval, advisory tool annotations, split
   servers and draft creation — and a conservative setup, in the new
   `docs/configuration.md` section "Limit what the server can change". The
   README, usage notes and SECURITY.md link to it, and no longer suggest that

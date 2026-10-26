@@ -19,10 +19,9 @@ this wrapper.
 | 3.x     | ✅ security fixes until 2027-01-17 |
 
 The current major (`5.x`) is fully supported. When a new major is released, the
-previous major continues to receive security fixes for at least six months — so
-`4.x` is supported through 2027-01-27, six months after the 5.0.0 release. `3.x`
-keeps its earlier commitment through 2027-01-17, six months after the 4.0.0
-release. Other majors are not supported.
+previous major continues to receive security fixes for at least six months.
+`3.x` keeps the six months promised when 4.0.0 was released. The table shows
+each end date; other majors are not supported.
 
 ## Reporting a vulnerability
 
@@ -58,8 +57,8 @@ We aim to acknowledge reports within 3 business days.
 - The published npm artifact (`dist/`).
 - Sample configurations in `README.md` and `docs/configuration.md` that
   could mislead users into an insecure setup.
-- A tool whose annotations misstate its effect — for example, a tool marked
-  `readOnlyHint: true` that changes data.
+- A tool whose description or annotations misstate its effect — for example, a
+  tool marked `readOnlyHint: true` that changes data.
 
 ## What is out of scope
 
@@ -74,7 +73,7 @@ We aim to acknowledge reports within 3 business days.
   state, after your MCP client approved the call or was set to run it
   without approval. Approving tool calls is the client's job; see
   [Limit what the server can change](docs/configuration.md#limit-what-the-server-can-change).
-  Server defects and misleading tool metadata stay in scope.
+  Server defects and tools that misstate their effect stay in scope.
 
 ## Credential storage & native dependencies
 
