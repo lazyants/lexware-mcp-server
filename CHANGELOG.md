@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.4.0] — 2026-10-26
+
 ### Added
 
 - Opt-in read-only mode. Set `LEXWARE_READ_ONLY=true` (or `1`) and the full server and every split
@@ -17,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stay in the tool list, marked "Blocked"; a call to one returns an error and sends no request to
   Lexware. Off by default; an unrecognized value stops the server from starting. See
   `docs/configuration.md` § Read-only mode (#149).
+- `server.json` lists `LEXWARE_READ_ONLY` among the environment variables, so
+  the MCP Registry entry shows the option.
 
 ### Changed
 
@@ -670,6 +674,7 @@ No code or dependency changes: 5.3.2 ships the 5.3.1 changes below unchanged.
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[5.4.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.4.0
 [5.3.3]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.3.3
 [5.3.2]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.3.2
 [5.3.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.3.1

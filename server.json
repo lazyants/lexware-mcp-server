@@ -6,7 +6,7 @@
     "url": "https://github.com/lazyants/lexware-mcp-server",
     "source": "github"
   },
-  "version": "5.3.3",
+  "version": "5.4.0",
   "icon": {
     "src": "https://raw.githubusercontent.com/lazyants/lexware-mcp-server/main/logo.png",
     "mimeType": "image/png",
@@ -18,7 +18,7 @@
     {
       "registryType": "npm",
       "identifier": "@lazyants/lexware-mcp-server",
-      "version": "5.3.3",
+      "version": "5.4.0",
       "environmentVariables": [
         {
           "name": "LEXWARE_API_TOKEN",
@@ -30,6 +30,11 @@
           "name": "LEXWARE_KEYRING_SERVICE",
           "description": "OS keyring service containing the API token.",
           "default": "lexware-mcp",
+          "isRequired": false
+        },
+        {
+          "name": "LEXWARE_READ_ONLY",
+          "description": "Set to true or 1 to block every tool that changes Lexware data; unset, empty, false or 0 leaves it off.",
           "isRequired": false
         }
       ],
