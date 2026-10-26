@@ -99,6 +99,8 @@ downloads, and webhooks.
 - **Use the OS keyring** and **never commit your API token** to version control.
 - Use **read-only** access when you only need to list/get resources.
 - **Create, update, and delete tools modify real business data** in your Lexware account.
+- Set `LEXWARE_READ_ONLY=true` to make the server refuse every tool that changes data. See
+  [Read-only mode](https://github.com/lazyants/lexware-mcp-server/blob/main/docs/configuration.md#read-only-mode).
 - Requests that hit the rate limit (HTTP 429) are retried automatically with exponential backoff.
 
 To report a vulnerability, see [SECURITY.md](https://github.com/lazyants/lexware-mcp-server/blob/main/SECURITY.md).

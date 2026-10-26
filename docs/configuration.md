@@ -120,6 +120,7 @@ to version control.
 | `LEXWARE_API_TOKEN` | — | API token; used when the keyring has no entry for the configured service |
 | `LEXWARE_KEYRING_SERVICE` | `lexware-mcp` | Keyring service name. Override when connecting to multiple Lexware accounts simultaneously — run one server instance per account, each with its own service name |
 | `LEXWARE_WEBHOOK_PUBLIC_KEY` | — | PEM public key for `lexware_verify_webhook_signature`; by default the key is fetched from Lexware and cached |
+| `LEXWARE_READ_ONLY` | off | `true` or `1` makes the server refuse every tool that changes Lexware data; see [Read-only mode](#read-only-mode) |
 
 To override the webhook-signature public key:
 
@@ -232,3 +233,53 @@ for two Lexware companies:
   }
 }
 ```
+
+## Read-only mode
+
+Set `LEXWARE_READ_ONLY` to `true` to make the server refuse every tool that creates, changes,
+deletes, uploads or pursues data. The server enforces this itself: a blocked tool sends no request
+to Lexware, whatever the MCP client or the AI model asks for.
+
+```json
+{
+  "mcpServers": {
+    "lexware": {
+      "command": "npx",
+      "args": ["-y", "@lazyants/lexware-mcp-server"],
+      "env": { "LEXWARE_READ_ONLY": "true" }
+    }
+  }
+}
+```
+
+| Value | Effect |
+| --- | --- |
+| unset, empty, `false`, `0` | Off (the default). Every tool works as before. |
+| `true`, `1` | On. Case and surrounding spaces are ignored. |
+| anything else | The server does not start. It prints `LEXWARE_READ_ONLY must be "true", "1", "false" or "0" (unset or empty means off).` |
+
+When read-only mode is on:
+
+- Tools that change data stay in your client's tool list, but their description starts with
+  "Blocked:" and they take no parameters. A call to one returns an error such as
+  `lexware_create_invoice is blocked: read-only mode is on (LEXWARE_READ_ONLY), so this server does not create, change, delete, upload or pursue Lexware data.`
+  No request is sent to Lexware.
+- Tools that only read work as usual: the get, list, download and deeplink tools,
+  `lexware_get_file_status` and `lexware_verify_webhook_signature`. The `reference://lexware/api`
+  resource is still available.
+- Which tools may run is a fixed list in the server code, not a guess from tool names. A tool added
+  in a later version is blocked in read-only mode until it is put on that list.
+
+The setting applies to the full server and to every split server. Each server entry in your client
+config runs as its own process, so set the variable in every entry that should be read-only.
+
+### Limitations
+
+- It limits this server only. Your API key keeps all the permissions it was created with, and any
+  other program that uses the key can still change data.
+- Read tools still send business data and file contents to your MCP client and to the AI model
+  behind it.
+- Unless `LEXWARE_WEBHOOK_PUBLIC_KEY` is set, `lexware_verify_webhook_signature` fetches Lexware's
+  public key from `developers.lexware.io` once. This only reads; it changes nothing.
+- You cannot choose which tools to block. Read-only mode blocks every tool that changes data, and
+  nothing else.
