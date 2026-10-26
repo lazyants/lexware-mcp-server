@@ -10,6 +10,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Document who enforces each safeguard against unintended changes — Lexware
+  API key permissions, MCP client approval, advisory tool annotations, split
+  servers and draft creation — and a conservative setup, in the new
+  `docs/configuration.md` section "Limit what the server can change". The
+  README, usage notes and SECURITY.md link to it, and no longer suggest that
+  read-only access is a server option (#150).
+- The environment-variable example reads the token with `read -rs`, so it no
+  longer lands in shell history.
+- SECURITY.md lists 5.x as the supported major and 4.x security fixes through
+  2027-01-27, applying its existing six-month policy.
+
 ## [5.3.3] — 2026-10-26
 
 ### Security
