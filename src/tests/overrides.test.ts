@@ -90,9 +90,10 @@ const PINS: Pin[] = [
   },
   {
     name: 'qs',
-    floor: '6.16.0',
-    // GHSA-x5fp-wj9c-mxmx and GHSA-4mjr-xmp4-gh2g extended the range through 6.15.3.
-    advisory: 'GHSA-q8mj-m7cp-5q26 DoS',
+    floor: '6.16.1',
+    // GHSA-x5fp-wj9c-mxmx and GHSA-4mjr-xmp4-gh2g extended the range through 6.15.3;
+    // GHSA-6pq8-jhm2-2vcw then extended it through 6.16.0.
+    advisory: 'GHSA-q8mj-m7cp-5q26, GHSA-6pq8-jhm2-2vcw DoS',
     declaredIn: 'overrides',
   },
   {
@@ -135,10 +136,11 @@ const PINS: Pin[] = [
     // the ESM import graph from src/server.ts (sdk/server/mcp.js + /stdio.js)
     // reaches no hono code at all — only sdk/server/streamableHttp.js imports
     // it, and nothing we load imports that. Revisit if the HTTP transport is
-    // ever adopted.
+    // ever adopted. GHSA-rmxm-3fg6-px4f (serveStatic decodes the path twice)
+    // later covered everything before 2.1.3, so the floor moved there.
     name: '@hono/node-server',
-    floor: '2.0.10',
-    advisory: 'GHSA-frvp-7c67-39w9 path traversal, GHSA-9mqv-5hh9-4cgg DoS',
+    floor: '2.1.3',
+    advisory: 'GHSA-frvp-7c67-39w9 path traversal, GHSA-9mqv-5hh9-4cgg DoS, GHSA-rmxm-3fg6-px4f',
     declaredIn: 'overrides',
   },
   {
@@ -168,6 +170,14 @@ const PINS: Pin[] = [
     name: 'form-data',
     floor: '4.0.6',
     advisory: 'GHSA-hmw2-7cc7-3qxx CRLF injection',
+    declaredIn: 'overrides',
+  },
+  {
+    // axios declares "follow-redirects": "^1.16.0", which the committed 1.16.1
+    // already satisfied, so only an override pulls the lockfile forward.
+    name: 'follow-redirects',
+    floor: '1.16.2',
+    advisory: 'GHSA-mrwp-f3q8-3g9p credentials kept across redirects',
     declaredIn: 'overrides',
   },
 ];
