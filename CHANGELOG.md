@@ -10,6 +10,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.4.1] — 2026-11-07
+
+### Security
+
+- Raise the `qs` override floor to `^6.16.1` and `@hono/node-server` to
+  `^2.1.3`, add a `follow-redirects` override at `^1.16.2`, and refresh the
+  lockfile: `qs` 6.16.0 → 6.17.1 (GHSA-6pq8-jhm2-2vcw), `@hono/node-server`
+  2.0.12 → 2.1.6 (GHSA-rmxm-3fg6-px4f) and `follow-redirects` 1.16.1 → 1.16.2
+  (GHSA-mrwp-f3q8-3g9p) (#156).
+
+### Changed
+
+- Update the locked `@modelcontextprotocol/sdk` to 1.32.2 and `axios` to
+  1.21.0. `package.json` ranges unchanged (#157).
+
+### Maintenance
+
+- Bump development tooling: `eslint` 10.14.0, `globals` 17.14.0,
+  `typescript-eslint` 8.72.1 (#157).
+
 ## [5.4.0] — 2026-10-26
 
 ### Added
@@ -674,6 +694,7 @@ No code or dependency changes: 5.3.2 ships the 5.3.1 changes below unchanged.
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[5.4.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.4.1
 [5.4.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.4.0
 [5.3.3]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.3.3
 [5.3.2]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.3.2
