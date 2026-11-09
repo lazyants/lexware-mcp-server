@@ -299,6 +299,30 @@ describe('lexware client', () => {
     );
   });
 
+  it('sends requests to LEXWARE_API_BASE when it is set', async () => {
+    process.env.LEXWARE_API_BASE = 'http://lexware-double:8080/v1/';
+    try {
+      mockRequest.mockResolvedValue({ data: { ok: true } });
+      const { lexwareRequest } = await import('../services/lexware.js');
+      await lexwareRequest('GET', '/profile');
+      expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ baseURL: 'http://lexware-double:8080/v1' }));
+    } finally {
+      delete process.env.LEXWARE_API_BASE;
+    }
+  });
+
+  it('sends no request when LEXWARE_API_BASE is invalid', async () => {
+    process.env.LEXWARE_API_BASE = 'api.lexware-double/v1';
+    try {
+      const { lexwareRequest } = await import('../services/lexware.js');
+      await expect(lexwareRequest('GET', '/profile')).rejects.toThrow('LEXWARE_API_BASE must be');
+      expect(mockCreate).not.toHaveBeenCalled();
+      expect(mockRequest).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.LEXWARE_API_BASE;
+    }
+  });
+
   it('makes GET request with correct path', async () => {
     mockRequest.mockResolvedValue({ data: { id: '123' } });
     const { lexwareRequest } = await import('../services/lexware.js');
