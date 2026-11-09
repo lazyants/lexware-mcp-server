@@ -250,7 +250,11 @@ server at a local stand-in that speaks the same REST API:
     "lexware": {
       "command": "npx",
       "args": ["-y", "@lazyants/lexware-mcp-server"],
-      "env": { "LEXWARE_API_BASE": "http://localhost:4010/v1", "LEXWARE_API_TOKEN": "test-token" }
+      "env": {
+        "LEXWARE_API_BASE": "http://localhost:4010/v1",
+        "LEXWARE_KEYRING_SERVICE": "lexware-mcp-test-double",
+        "LEXWARE_API_TOKEN": "test-token"
+      }
     }
   }
 }
@@ -264,6 +268,10 @@ server at a local stand-in that speaks the same REST API:
 
 - The API token goes to that URL with every request. Use a token the stand-in accepts, not your
   real one.
+- A token in the OS keyring wins over `LEXWARE_API_TOKEN`. If you stored your real token there (as
+  recommended above), the example would still send it to the stand-in. That is why it sets its own
+  `LEXWARE_KEYRING_SERVICE`: use a service name that has no entry with a production token, so the
+  dummy `LEXWARE_API_TOKEN` is the one that is used.
 - Only the REST API moves. Deeplinks still point to `https://app.lexware.de`, and
   `lexware_verify_webhook_signature` still fetches Lexware's public key unless
   `LEXWARE_WEBHOOK_PUBLIC_KEY` is set.
