@@ -10,13 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.5.0] — 2026-11-13
+
 ### Added
 
 - `LEXWARE_API_BASE` sets the base URL of the Lexware REST API, so the server can run against a
   test double or a recording proxy instead of a live account. Unset keeps
   `https://api.lexware.io/v1`; an invalid value stops the server from starting instead of falling
   back to the real gateway, and a valid override is named on stderr at start. See
-  [Run against a test double](docs/configuration.md#run-against-a-test-double).
+  [Run against a test double](docs/configuration.md#run-against-a-test-double) (#159, #163).
 
 ### Fixed
 
@@ -25,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   documented limit of 10,000 entries per search. The aggregate result adds
   `searchWindowReached`, which means more vouchers may match than were
   returned, and the walk never requests a page past the limit (#161).
+
+### Security
+
+- Refresh the lockfile: `hono` 4.13.12 → 4.13.18 (GHSA-4m76-xfj5-7975,
+  GHSA-h7mg-cq63-vhpq, GHSA-3gg2-335m-rxc6, GHSA-46wx-v44x-9hh2,
+  GHSA-4h7h-rv7c-7m2v). `package.json` ranges unchanged (#160).
 
 ## [5.4.1] — 2026-11-07
 
@@ -710,6 +718,7 @@ No code or dependency changes: 5.3.2 ships the 5.3.1 changes below unchanged.
 - GitHub Actions test workflow.
 - MCP Registry publishing via `mcp-publisher` GitHub OIDC.
 
+[5.5.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.5.0
 [5.4.1]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.4.1
 [5.4.0]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.4.0
 [5.3.3]: https://github.com/lazyants/lexware-mcp-server/releases/tag/v5.3.3
