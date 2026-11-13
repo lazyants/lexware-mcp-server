@@ -21,7 +21,10 @@ export function parseApiBase(value: string | undefined): string {
   } catch {
     throw new Error(INVALID);
   }
-  if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.username || url.password || url.search || url.hash) {
+  // A literal `?` or `#` is checked on the raw value, not via url.search / url.hash: those read ''
+  // for an empty query or fragment (`…/v1?`, `…/v1#`), yet url.href keeps the delimiter, so every
+  // request path appended to the base would land in the query or fragment.
+  if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.username || url.password || /[?#]/.test(trimmed)) {
     throw new Error(INVALID);
   }
   return url.href.replace(/\/$/, '');

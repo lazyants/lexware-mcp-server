@@ -23,6 +23,8 @@ describe('LEXWARE_API_BASE', () => {
     'https://user:secret@example.com/v1',
     'https://example.com/v1?tenant=test',
     'https://example.com/v1#x',
+    'https://example.com/v1?',
+    'https://example.com/v1#',
     'not a url',
   ])('refuses %j instead of falling back to the real gateway', (value) => {
     expect(() => parseApiBase(value)).toThrow(
