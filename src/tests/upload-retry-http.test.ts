@@ -13,25 +13,12 @@ import http from 'node:http';
 
 // GOTCHA: vi.mock is hoisted above top-level const declarations. Use vi.hoisted()
 // to create mock fns/state that are accessible inside the vi.mock factories.
-const { holder, mockGetPassword } = vi.hoisted(() => ({
-  // LEXWARE_API_BASE has no env override (src/constants.ts:1), so the only way
-  // to redirect createClient() at a real socket is a mocked getter the test
-  // fills in once the ephemeral server port is known.
-  holder: { base: '' },
+// createClient() is pointed at the real socket below through LEXWARE_API_BASE,
+// the same override an operator uses for a test double, once the ephemeral
+// server port is known.
+const { mockGetPassword } = vi.hoisted(() => ({
   mockGetPassword: vi.fn<(signal?: AbortSignal) => Promise<string | undefined>>().mockResolvedValue(undefined),
 }));
-
-// A getter, not a snapshotted value, so it is read fresh on every createClient()
-// call regardless of when this factory itself ran relative to beforeAll below.
-vi.mock('../constants.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../constants.js')>();
-  return {
-    ...actual,
-    get LEXWARE_API_BASE() {
-      return holder.base;
-    },
-  };
-});
 
 // Without this, resolveToken() reads the real OS keyring first and would either
 // send a developer's real token to the local mock server or block for
@@ -130,6 +117,7 @@ function normalizeParts(parts: ParsedPart[]) {
 describe('lexware upload 429 retry — real HTTP stack (#89)', () => {
   const TEST_TOKEN = 'retry-http-test-token';
   const originalEnv = process.env.LEXWARE_API_TOKEN;
+  const originalBase = process.env.LEXWARE_API_BASE;
 
   let server: http.Server;
   const receivedRequests: RecordedRequest[] = [];
@@ -168,7 +156,7 @@ describe('lexware upload 429 retry — real HTTP stack (#89)', () => {
     // assertion 1's url === '/v1/files' would fail against a correct retry
     // implementation. The mock server does no routing, so nothing else would hint
     // at the mistake.
-    holder.base = `http://127.0.0.1:${address.port}/v1`;
+    process.env.LEXWARE_API_BASE = `http://127.0.0.1:${address.port}/v1`;
   });
 
   afterAll(async () => {
@@ -177,6 +165,11 @@ describe('lexware upload 429 retry — real HTTP stack (#89)', () => {
       process.env.LEXWARE_API_TOKEN = originalEnv;
     } else {
       delete process.env.LEXWARE_API_TOKEN;
+    }
+    if (originalBase !== undefined) {
+      process.env.LEXWARE_API_BASE = originalBase;
+    } else {
+      delete process.env.LEXWARE_API_BASE;
     }
   });
 

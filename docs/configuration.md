@@ -124,6 +124,7 @@ to version control.
 | `LEXWARE_KEYRING_SERVICE` | `lexware-mcp` | Keyring service name. Override when connecting to multiple Lexware accounts simultaneously — run one server instance per account, each with its own service name |
 | `LEXWARE_WEBHOOK_PUBLIC_KEY` | — | PEM public key for `lexware_verify_webhook_signature`; by default the key is fetched from Lexware and cached |
 | `LEXWARE_READ_ONLY` | off | `true` or `1` makes the server refuse every tool that changes Lexware data; see [Read-only mode](#read-only-mode) |
+| `LEXWARE_API_BASE` | `https://api.lexware.io/v1` | Base URL of the Lexware REST API. Set it only to run the server against a test double or a recording proxy; see [Run against a test double](#run-against-a-test-double) |
 
 To override the webhook-signature public key:
 
@@ -236,6 +237,44 @@ for two Lexware companies:
   }
 }
 ```
+
+## Run against a test double
+
+A demo, an integration test or a training session that creates invoices writes into the account
+behind the token, with real document numbers. To keep such runs out of a live account, point the
+server at a local stand-in that speaks the same REST API:
+
+```json
+{
+  "mcpServers": {
+    "lexware": {
+      "command": "npx",
+      "args": ["-y", "@lazyants/lexware-mcp-server"],
+      "env": {
+        "LEXWARE_API_BASE": "http://localhost:4010/v1",
+        "LEXWARE_KEYRING_SERVICE": "lexware-mcp-test-double",
+        "LEXWARE_API_TOKEN": "test-token"
+      }
+    }
+  }
+}
+```
+
+| Value | Effect |
+| --- | --- |
+| unset or empty | The real gateway, `https://api.lexware.io/v1` (the default). |
+| an absolute `http` or `https` URL | Every API request goes there. One trailing slash is ignored. On start the server prints `[lexware-mcp] LEXWARE_API_BASE is set: requests go to … instead of https://api.lexware.io/v1` to stderr. |
+| anything else (no scheme, another scheme, a user name or password, a query, a fragment) | The server does not start. A typo never falls back to the real gateway. |
+
+- The API token goes to that URL with every request. Use a token the stand-in accepts, not your
+  real one.
+- A token in the OS keyring wins over `LEXWARE_API_TOKEN`. If you stored your real token there (as
+  recommended above), the example would still send it to the stand-in. That is why it sets its own
+  `LEXWARE_KEYRING_SERVICE`: use a service name that has no entry with a production token, so the
+  dummy `LEXWARE_API_TOKEN` is the one that is used.
+- Only the REST API moves. Deeplinks still point to `https://app.lexware.de`, and
+  `lexware_verify_webhook_signature` still fetches Lexware's public key unless
+  `LEXWARE_WEBHOOK_PUBLIC_KEY` is set.
 
 ## Read-only mode
 

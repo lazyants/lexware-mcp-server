@@ -1,7 +1,8 @@
 import axios, { AxiosInstance, AxiosError, Method } from 'axios';
 import { get as httpsGet } from 'node:https';
 import { createPublicKey } from 'node:crypto';
-import { LEXWARE_API_BASE, LEXWARE_APP_BASE, MAX_RETRIES, REQUEST_TIMEOUT } from '../constants.js';
+import { LEXWARE_APP_BASE, MAX_RETRIES, REQUEST_TIMEOUT } from '../constants.js';
+import { apiBaseFromEnv } from '../api-base.js';
 import { LexwareLegacyError, LexwareStandardError } from '../types/common.js';
 import { MIME_TYPE_RE } from '../schemas/common.js';
 
@@ -162,7 +163,7 @@ function isStreamBody(data: unknown): boolean {
 async function createClient(): Promise<AxiosInstance> {
   const token = await getToken();
   const client = axios.create({
-    baseURL: LEXWARE_API_BASE,
+    baseURL: apiBaseFromEnv(),
     timeout: REQUEST_TIMEOUT,
     headers: {
       Authorization: `Bearer ${token}`,

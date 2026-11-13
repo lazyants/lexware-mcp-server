@@ -40,7 +40,8 @@ write and review code here without another file. It is deliberately NOT the whol
 
 ## Repository specifics
 
-- **API**: Lexware Office REST. Base: `https://api.lexware.io/v1`. Docs: `https://developers.lexware.io/`.
+- **API**: Lexware Office REST. Base: `https://api.lexware.io/v1`, overridable with `LEXWARE_API_BASE`
+  (`src/api-base.ts`; an invalid value stops the server, it never falls back). Docs: `https://developers.lexware.io/`.
 - **Credentials**: an API token is required, from **either** the OS keyring **or** the environment.
   `resolveToken()` in `src/services/lexware.ts` reads the keyring first — service `lexware-mcp`,
   overridable with `LEXWARE_KEYRING_SERVICE` — and falls back to `LEXWARE_API_TOKEN`. The README

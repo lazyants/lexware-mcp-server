@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `LEXWARE_API_BASE` sets the base URL of the Lexware REST API, so the server can run against a
+  test double or a recording proxy instead of a live account. Unset keeps
+  `https://api.lexware.io/v1`; an invalid value stops the server from starting instead of falling
+  back to the real gateway, and a valid override is named on stderr at start. See
+  [Run against a test double](docs/configuration.md#run-against-a-test-double).
+
 ## [5.4.1] — 2026-11-07
 
 ### Security
