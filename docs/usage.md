@@ -80,9 +80,13 @@ or `updatedDate` followed by `ASC` or `DESC`, for example `updatedDate,DESC`. St
 
 By default this is a single-page passthrough of the API response. Two additions are opt-in:
 
-- `fetchAllPages: true` follows pagination until every page is retrieved, capped at 100 requests.
-  The result adds `fetchedPages` and `truncated`, the latter marking a set cut short by the cap —
-  API fields such as `totalElements` are preserved.
+- `fetchAllPages: true` follows pagination across pages, capped at 100 requests. The result adds
+  `fetchedPages`, `truncated` and `searchWindowReached`; API fields such as `totalElements` are
+  preserved. `truncated` marks pages that exist but were not read. `searchWindowReached` marks
+  Lexware's documented limit of 10,000 entries per search: `totalElements` stops at 10,000, so
+  more vouchers may match than were returned. The walk never requests a page past that limit.
+  When the flag is set, narrow the date range, `voucherType`, `voucherStatus` or `contactId` and
+  query again — a client-side filter only sees the entries Lexware returned.
 - `contactName` (SQL-style `%`/`_` wildcards, case-insensitive) and `hasOpenAmount` filter
   client-side after fetching, and each implies `fetchAllPages`. They are applied here rather than on
   `lexware_list_vouchers` because `/voucherlist` is the response shape that carries `contactName`

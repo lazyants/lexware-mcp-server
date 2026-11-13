@@ -6,10 +6,16 @@ import { UuidSchema, PaginationParams, SortParam } from '../schemas/common.js';
 import { MAX_PAGE_SIZE } from '../constants.js';
 import { wildcardMatch } from './_vouchers.js';
 
-// Bound on auto-pagination. At the 250-row default that is 25 000 entries, well past
-// any interactive query, and it stops a pathological totalPages from turning one tool
-// call into an unbounded request storm.
+// Bound on auto-pagination. It stops a pathological totalPages from turning one tool
+// call into an unbounded request storm when the caller picks a small page size; at the
+// 250-row default the search window below ends the walk first, after 40 requests.
 const MAX_AUTO_PAGES = 100;
+
+// Lexware's documented "search window" (Paging of Resources): one search serves at most
+// 10 000 entries, `totalElements` is capped there, and a page reaching past it fails with
+// "Maximum search window size exceeded". A capped total therefore cannot tell "exactly
+// 10 000 matched" from "more matched than Lexware will return".
+const SEARCH_WINDOW = 10_000;
 
 interface VoucherlistEntry {
   contactName?: unknown;
@@ -19,6 +25,7 @@ interface VoucherlistEntry {
 interface VoucherlistResponse {
   content?: VoucherlistEntry[];
   totalPages?: number;
+  totalElements?: number;
 }
 
 export function registerVoucherlistTools(server: McpServer): void {
@@ -52,8 +59,10 @@ export function registerVoucherlistTools(server: McpServer): void {
         'Sort by voucherDate, voucherNumber, createdDate or updatedDate, followed by ASC or DESC, e.g. "updatedDate,DESC".'
       ),
       fetchAllPages: z.boolean().default(false).describe(
-        'When true, follow pagination until every page is retrieved (capped at ' +
-        `${MAX_AUTO_PAGES} requests) instead of returning a single page.`
+        `When true, read every page instead of one, up to ${MAX_AUTO_PAGES} requests. ` +
+        'truncated: true means pages were left unread. Lexware serves at most 10,000 entries ' +
+        'per search; searchWindowReached: true means more vouchers may match than were ' +
+        'returned — narrow the date range, voucherType, voucherStatus or contactId and repeat.'
       ),
       contactName: z.string().optional().describe(
         'Wildcard filter on contactName, applied client-side after fetching. ' +
@@ -105,8 +114,11 @@ export function registerVoucherlistTools(server: McpServer): void {
     let totalPages = 1;
     let last: VoucherlistResponse = {};
     let requests = 0;
+    // Never ask for a page that reaches past the search window: Lexware rejects it, and
+    // the whole aggregate would fail instead of returning what the window allows.
+    const fitsWindow = (p: number) => (p + 1) * pageSize <= SEARCH_WINDOW;
 
-    while (page < totalPages && requests < MAX_AUTO_PAGES) {
+    while (page < totalPages && requests < MAX_AUTO_PAGES && fitsWindow(page)) {
       last = await lexwareRequest<VoucherlistResponse>(
         'GET', '/voucherlist', undefined, { ...query, page, size: pageSize },
       );
@@ -130,12 +142,18 @@ export function registerVoucherlistTools(server: McpServer): void {
     // then override content and state plainly what this aggregate actually did.
     // `truncated` is reported rather than hidden: a silently short list reads as
     // "that is all there is", the one answer a caller must never be given wrongly.
+    // It means "pages exist that were not read". `searchWindowReached` covers what it
+    // cannot see: a capped total ends the walk with every advertised page read, yet more
+    // vouchers may match. It says "maybe", not "missing" — exactly 10 000 matches look
+    // the same.
     return {
       ...last,
       content,
       filteredCount: content.length,
       fetchedPages: requests,
       truncated: page < totalPages,
+      searchWindowReached:
+        (last.totalElements ?? 0) >= SEARCH_WINDOW || (page < totalPages && !fitsWindow(page)),
     };
   }));
 }

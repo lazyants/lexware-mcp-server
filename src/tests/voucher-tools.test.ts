@@ -214,17 +214,63 @@ describe('lexware_list_voucherlist', () => {
     expect(sc.content).toHaveLength(2);
     expect(sc.fetchedPages).toBe(2);
     expect(sc.truncated).toBe(false);
+    expect(sc.searchWindowReached).toBe(false);
     expect(sc.totalElements).toBe(2); // spread from the API response, not invented
     expect(mocks.lexwareRequest).toHaveBeenNthCalledWith(1, 'GET', '/voucherlist', undefined, expect.objectContaining({ page: 0 }));
     expect(mocks.lexwareRequest).toHaveBeenNthCalledWith(2, 'GET', '/voucherlist', undefined, expect.objectContaining({ page: 1 }));
   });
 
+  // A small page size, so the local request cap fires before the search window does.
   it('stops at the page cap and flags the result as truncated', async () => {
     mocks.lexwareRequest.mockResolvedValue({ content: [{ id: 'x' }], totalPages: 5_000 });
-    const sc = (await handler({ fetchAllPages: true })).structuredContent;
+    const sc = (await handler({ fetchAllPages: true, size: 50 })).structuredContent;
     expect(sc.fetchedPages).toBe(100);
     expect(sc.truncated).toBe(true);
+    expect(sc.searchWindowReached).toBe(false);
     expect(mocks.lexwareRequest).toHaveBeenCalledTimes(100);
+  });
+
+  // Lexware serves at most 10 000 entries per search and caps totalElements there
+  // (Paging of Resources). Each page here holds one 'Acme' entry among `size` rows.
+  describe('the 10 000-entry search window', () => {
+    function serve(totalPages: number, totalElements: number) {
+      mocks.lexwareRequest.mockImplementation(
+        async (_m: string, _p: string, _b: unknown, q: { page: number; size: number }) => ({
+          content: Array.from({ length: q.size }, (_, i) => ({
+            id: `${q.page}-${i}`, contactName: i === 0 ? 'Acme' : 'Other',
+          })),
+          totalPages,
+          totalElements,
+        }),
+      );
+    }
+    const requestedPages = () => mocks.lexwareRequest.mock.calls.map((c) => c[3].page);
+
+    it('flags a capped total even though every advertised page was read', async () => {
+      serve(40, 10_000);
+      const sc = (await handler({ contactName: 'Acme' })).structuredContent;
+      expect(sc.fetchedPages).toBe(40);
+      expect(sc.filteredCount).toBe(40);
+      expect(sc.truncated).toBe(false); // every advertised page was read...
+      expect(sc.searchWindowReached).toBe(true); // ...but more may match than Lexware serves
+    });
+
+    it('never requests a page past the window when totalPages is not capped', async () => {
+      serve(60, 10_000);
+      const sc = (await handler({ fetchAllPages: true })).structuredContent;
+      expect(Math.max(...requestedPages())).toBe(39); // 40 × 250 = 10 000
+      expect(sc.content).toHaveLength(10_000);
+      expect(sc.truncated).toBe(true);
+      expect(sc.searchWindowReached).toBe(true);
+    });
+
+    it('stops before a page that would cross the window at a non-dividing size', async () => {
+      serve(67, 9_950); // 67 pages of 150; page 66 would span entries 9 900–10 049
+      const sc = (await handler({ fetchAllPages: true, size: 150 })).structuredContent;
+      expect(Math.max(...requestedPages())).toBe(65);
+      expect(sc.truncated).toBe(true);
+      expect(sc.searchWindowReached).toBe(true);
+    });
   });
 
   it.each([

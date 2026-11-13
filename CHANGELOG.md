@@ -18,6 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   back to the real gateway, and a valid override is named on stderr at start. See
   [Run against a test double](docs/configuration.md#run-against-a-test-double).
 
+### Fixed
+
+- `lexware_list_voucherlist` no longer reports a complete result when a
+  `fetchAllPages`, `contactName` or `hasOpenAmount` search reaches Lexware's
+  documented limit of 10,000 entries per search. The aggregate result adds
+  `searchWindowReached`, which means more vouchers may match than were
+  returned, and the walk never requests a page past the limit (#161).
+
 ## [5.4.1] — 2026-11-07
 
 ### Security
