@@ -1,0 +1,42 @@
+$ npm view @lazyants/lexware-mcp-server dist-tags.latest
+5.5.0
+
+$ npm install @lazyants/lexware-mcp-server@5.5.0   (into an empty temp dir)
+
+added 111 packages in 4s
+installed version: 5.5.0
+locked hono:       4.13.18
+
+$ node drive-smoke.mjs .../dist/index.js
+stand-in Lexware API listening on http://127.0.0.1:52951/v1
+
+1. LEXWARE_API_BASE="http://127.0.0.1:52951/v1?" (empty query: invalid)
+  exit code: 1
+  stderr: Fatal: Error: LEXWARE_API_BASE must be an absolute http or https URL without credentials, query or fragment (unset or empty means https://api.lexware.io/v1).
+  [ok] server exits with a non-zero code
+  [ok] stderr names the invalid LEXWARE_API_BASE
+  [ok] never announced "running on stdio"
+  [ok] stand-in received no request
+
+2. LEXWARE_API_BASE="http://127.0.0.1:52951/v1/" (valid, trailing slash)
+  stderr: [lexware-mcp] LEXWARE_API_BASE is set: requests go to http://127.0.0.1:52951/v1 instead of https://api.lexware.io/v1
+  stderr: MCP server running on stdio (v5.5.0)
+  [ok] stderr announces the override and its target
+  [ok] banner reports v5.5.0
+  serverInfo: lexware-mcp-server v5.5.0
+  [ok] serverInfo.version is 5.5.0
+  tools advertised: 66
+  [ok] main entry advertises 66 tools
+  [ok] voucherlist description mentions searchWindowReached
+
+3. lexware_list_voucherlist { hasOpenAmount: true } against a 15,000-voucher account
+  isError=false fetchedPages=40 filteredCount=10 totalElements=10000 truncated=false searchWindowReached=true
+  stand-in saw: 40 requests on /v1/voucherlist, highest page 39, 0 rejected past the window, smoke token on 40/40
+  [ok] tool call succeeded
+  [ok] read 40 pages of 250 (the whole window)
+  [ok] 10 entries with an open amount kept
+  [ok] searchWindowReached is true
+  [ok] no page past the window was requested
+  [ok] every request went to the stand-in with the smoke token
+
+assertions failed: 0
